@@ -160,7 +160,12 @@ final class HarpAwareController {
     }
 
     private void secure(WifiAwareNetworkSpecifier.Builder b) {
-        b.setPskPassphrase(PSK);
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            AwareSecurityApi33.apply(aware, b, PSK);
+        } else {
+            b.setPskPassphrase(PSK);
+            HarpLog.i("Aware security=legacy PSK");
+        }
     }
 
     private void startRelayDataPath(PeerHandle peer) {
