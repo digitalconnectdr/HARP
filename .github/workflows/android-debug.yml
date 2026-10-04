@@ -32,6 +32,7 @@ jobs:
         with:
           gradle-version: '9.4.1'
 
+
       - name: Build debug APK
         run: gradle --no-daemon clean :app:assembleDebug
 
