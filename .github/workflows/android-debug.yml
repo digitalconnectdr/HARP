@@ -2,8 +2,6 @@ name: Build HARP Android Debug APK
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main, master ]
 
 jobs:
   build:
