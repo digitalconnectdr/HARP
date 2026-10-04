@@ -20,6 +20,11 @@ jobs:
           java-version: '21'
 
 
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ''
+
       - name: Install Android platform/build tools
         run: |
           yes | sdkmanager --licenses >/dev/null || true
