@@ -88,6 +88,14 @@ final class HarpAwareController {
                         }
                     }
 
+                    @Override public void onMessageSendSucceeded(int messageId) {
+                        HarpLog.i("B: discovery TX OK id=" + messageId);
+                    }
+
+                    @Override public void onMessageSendFailed(int messageId) {
+                        HarpLog.i("B: discovery TX FAILED id=" + messageId);
+                    }
+
                     @Override public void onSessionConfigFailed() {
                         HarpLog.i("B: publish FAILED");
                     }
@@ -132,6 +140,14 @@ final class HarpAwareController {
                                 && clientNdpStarted.compareAndSet(false, true)) {
                             startClientDataPath(peer);
                         }
+                    }
+
+                    @Override public void onMessageSendSucceeded(int messageId) {
+                        HarpLog.i("A: discovery TX OK id=" + messageId);
+                    }
+
+                    @Override public void onMessageSendFailed(int messageId) {
+                        HarpLog.i("A: discovery TX FAILED id=" + messageId);
                     }
 
                     @Override public void onSessionConfigFailed() {
