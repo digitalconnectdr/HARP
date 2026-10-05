@@ -20,6 +20,7 @@ public final class Stage01PureJavaSelfTest {
         testSocksRelay();
         testSocksBadAuth();
         testSocksWrongDestination();
+        testPublicDestinationPolicy();
         System.out.println("PASS_STAGE01_PURE_JAVA_SELFTEST");
     }
 
@@ -59,9 +60,13 @@ public final class Stage01PureJavaSelfTest {
             Future<?> proxyFuture = io.submit(() -> {
                 try (Socket client = proxy.accept()) {
                     MiniSocks5.serveOne(
-                            client, io, "harp", "secret", "localhost",
-                            target.getLocalPort(),
-                            new InetAddress[]{InetAddress.getLoopbackAddress()},
+                            client,
+                            io,
+                            "harp",
+                            "secret",
+                            SocksPolicies.exactTargetForTest(
+                                    "localhost", target.getLocalPort()),
+                            host -> new InetAddress[]{InetAddress.getLoopbackAddress()},
                             SocketFactory.getDefault());
                 } catch (Exception e) {
                     throw new RuntimeException(e);
@@ -95,8 +100,12 @@ public final class Stage01PureJavaSelfTest {
                 try (Socket client = proxy.accept()) {
                     try {
                         MiniSocks5.serveOne(
-                                client, io, "harp", "correct", "localhost", 443,
-                                new InetAddress[]{InetAddress.getLoopbackAddress()},
+                                client,
+                                io,
+                                "harp",
+                                "correct",
+                                SocksPolicies.exactTargetForTest("localhost", 443),
+                                host -> new InetAddress[]{InetAddress.getLoopbackAddress()},
                                 SocketFactory.getDefault());
                         throw new AssertionError("bad auth accepted");
                     } catch (IOException expected) {
@@ -135,8 +144,12 @@ public final class Stage01PureJavaSelfTest {
                 try (Socket client = proxy.accept()) {
                     try {
                         MiniSocks5.serveOne(
-                                client, io, "harp", "secret", "allowed.invalid", 443,
-                                new InetAddress[]{InetAddress.getLoopbackAddress()},
+                                client,
+                                io,
+                                "harp",
+                                "secret",
+                                SocksPolicies.exactTargetForTest("allowed.invalid", 443),
+                                host -> new InetAddress[]{InetAddress.getLoopbackAddress()},
                                 SocketFactory.getDefault());
                         throw new AssertionError("wrong destination accepted");
                     } catch (IOException expected) {
@@ -167,5 +180,63 @@ public final class Stage01PureJavaSelfTest {
         } finally {
             io.shutdownNow();
         }
+    }
+
+    private static void testPublicDestinationPolicy() throws Exception {
+        SocksDestinationPolicy web = SocksPolicies.publicWeb();
+
+        web.validateRequest("example.com", 443);
+        web.validateRequest("example.com", 80);
+        expectRejected(() -> web.validateRequest("example.com", 22));
+
+        assertPublic("1.1.1.1", true);
+        assertPublic("8.8.8.8", true);
+        assertPublic("2606:4700:4700::1111", true);
+
+        assertPublic("0.0.0.1", false);
+        assertPublic("10.0.0.1", false);
+        assertPublic("127.0.0.1", false);
+        assertPublic("169.254.1.1", false);
+        assertPublic("172.16.0.1", false);
+        assertPublic("192.168.1.1", false);
+        assertPublic("100.64.0.1", false);
+        assertPublic("198.18.0.1", false);
+        assertPublic("224.0.0.1", false);
+        assertPublic("fc00::1", false);
+        assertPublic("fe80::1", false);
+        assertPublic("::1", false);
+        assertPublic("2001:db8::1", false);
+
+        expectRejected(() -> web.validateResolved(
+                "example.com", 443,
+                new InetAddress[]{InetAddress.getByName("127.0.0.1")}));
+
+        web.validateResolved(
+                "example.com", 443,
+                new InetAddress[]{InetAddress.getByName("1.1.1.1")});
+
+        System.out.println("PASS_PUBLIC_DESTINATION_POLICY");
+    }
+
+    private static void assertPublic(String literal, boolean expected) throws Exception {
+        boolean actual =
+                SocksPolicies.isPublicInternetAddress(InetAddress.getByName(literal));
+        if (actual != expected) {
+            throw new AssertionError(
+                    "address policy " + literal + " expected=" + expected + " actual=" + actual);
+        }
+    }
+
+    private static void expectRejected(CheckedRunnable action) throws Exception {
+        try {
+            action.run();
+            throw new AssertionError("operation should have been rejected");
+        } catch (IOException expected) {
+            // expected
+        }
+    }
+
+    private interface CheckedRunnable {
+        void run() throws Exception;
     }
 }
