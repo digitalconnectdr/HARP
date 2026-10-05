@@ -7,11 +7,16 @@ if (Test-Path $Out) {
 }
 New-Item -ItemType Directory -Force -Path $Out | Out-Null
 
-$Stage0 = Join-Path $Root "app\src\main\java\org\harp\l2\Stage0Protocol.java"
-$Socks = Join-Path $Root "app\src\main\java\org\harp\l2\MiniSocks5.java"
-$SelfTest = Join-Path $Root "tools\Stage01PureJavaSelfTest.java"
+$Sources = @(
+    (Join-Path $Root "app\src\main\java\org\harp\l2\Stage0Protocol.java"),
+    (Join-Path $Root "app\src\main\java\org\harp\l2\SocksDestinationPolicy.java"),
+    (Join-Path $Root "app\src\main\java\org\harp\l2\SocksAddressResolver.java"),
+    (Join-Path $Root "app\src\main\java\org\harp\l2\SocksPolicies.java"),
+    (Join-Path $Root "app\src\main\java\org\harp\l2\MiniSocks5.java"),
+    (Join-Path $Root "tools\Stage01PureJavaSelfTest.java")
+)
 
-& javac -d $Out $Stage0 $Socks $SelfTest
+& javac -Xlint:all -Werror -d $Out $Sources
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
