@@ -20,9 +20,15 @@ final class Stage2SessionCredentials {
         random.nextBytes(passBytes);
 
         Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
-        return new Stage2SessionCredentials(
+        return fromTokens(
                 "h_" + encoder.encodeToString(userBytes),
                 encoder.encodeToString(passBytes));
+    }
+
+    static Stage2SessionCredentials fromTokens(String username, String password) {
+        requireSafeToken(username, 8, 64, "username");
+        requireSafeToken(password, 24, 128, "password");
+        return new Stage2SessionCredentials(username, password);
     }
 
     String username() {
@@ -31,5 +37,22 @@ final class Stage2SessionCredentials {
 
     String password() {
         return password;
+    }
+
+    private static void requireSafeToken(
+            String value, int minLength, int maxLength, String field) {
+        if (value == null || value.length() < minLength || value.length() > maxLength) {
+            throw new IllegalArgumentException("invalid " + field + " length");
+        }
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            boolean ok =
+                    (c >= 'a' && c <= 'z')
+                    || (c >= 'A' && c <= 'Z')
+                    || (c >= '0' && c <= '9')
+                    || c == '_'
+                    || c == '-';
+            if (!ok) throw new IllegalArgumentException("unsafe " + field);
+        }
     }
 }
