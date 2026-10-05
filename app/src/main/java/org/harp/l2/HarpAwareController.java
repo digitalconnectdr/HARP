@@ -38,6 +38,8 @@ final class HarpAwareController {
     private static final String PSK = "harp-lab-2026";
     private static final int MSG_HELLO = 1;
     private static final int MSG_READY = 2;
+    private static final int MSG_HELLO_RETRY = 3;
+    private static final int MSG_READY_RETRY = 4;
     private static final int NDP_TIMEOUT_MS = 30000;
 
     private final WifiAwareManager aware;
@@ -49,6 +51,8 @@ final class HarpAwareController {
     private WifiAwareSession awareSession;
     private PublishDiscoverySession pub;
     private SubscribeDiscoverySession sub;
+    private PeerHandle relayPeer;
+    private PeerHandle clientPeer;
     private ConnectivityManager.NetworkCallback netCb;
     private ServerSocket server;
     private volatile boolean closed;
@@ -84,6 +88,7 @@ final class HarpAwareController {
                         HarpLog.i("B: discovery RX=" + text);
                         if (Stage0Protocol.HELLO.equals(text)
                                 && relayNdpStarted.compareAndSet(false, true)) {
+                            relayPeer = peer;
                             startRelayDataPath(peer);
                         }
                     }
@@ -94,6 +99,13 @@ final class HarpAwareController {
 
                     @Override public void onMessageSendFailed(int messageId) {
                         HarpLog.i("B: discovery TX FAILED id=" + messageId);
+                        if (messageId == MSG_READY && relayPeer != null && pub != null && !closed) {
+                            HarpLog.i("B: retry READY una vez");
+                            pub.sendMessage(relayPeer, MSG_READY_RETRY,
+                                    Stage0Protocol.READY.getBytes(StandardCharsets.UTF_8));
+                        } else if (messageId == MSG_READY_RETRY) {
+                            HarpLog.i("B: READY retry FAILED");
+                        }
                     }
 
                     @Override public void onSessionConfigFailed() {
@@ -127,6 +139,7 @@ final class HarpAwareController {
                     @Override public void onServiceDiscovered(
                             PeerHandle peer, byte[] info, java.util.List<byte[]> filters) {
                         if (!helloSent.compareAndSet(false, true)) return;
+                        clientPeer = peer;
                         long ms = SystemClock.elapsedRealtime() - discoverStarted;
                         HarpLog.i("A: relay descubierto discovery_ms=" + ms);
                         sub.sendMessage(peer, MSG_HELLO,
@@ -148,6 +161,13 @@ final class HarpAwareController {
 
                     @Override public void onMessageSendFailed(int messageId) {
                         HarpLog.i("A: discovery TX FAILED id=" + messageId);
+                        if (messageId == MSG_HELLO && clientPeer != null && sub != null && !closed) {
+                            HarpLog.i("A: retry HELLO una vez");
+                            sub.sendMessage(clientPeer, MSG_HELLO_RETRY,
+                                    Stage0Protocol.HELLO.getBytes(StandardCharsets.UTF_8));
+                        } else if (messageId == MSG_HELLO_RETRY) {
+                            HarpLog.i("A: HELLO retry FAILED");
+                        }
                     }
 
                     @Override public void onSessionConfigFailed() {
