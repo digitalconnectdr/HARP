@@ -253,12 +253,16 @@ final class HarpAwareController {
                 return;
             }
             HarpLog.i("B: upstream=" + InternetNetworkSelector.describe(cm, internet));
+            java.net.InetAddress[] resolved =
+                    internet.getAllByName(Stage1InternetProbe.TARGET_HOST);
+            HarpLog.i("B: DNS via upstream count=" + resolved.length);
             MiniSocks5.serveOne(
                     s, io,
                     Stage1InternetProbe.USER,
                     Stage1InternetProbe.PASS,
                     Stage1InternetProbe.TARGET_HOST,
                     Stage1InternetProbe.TARGET_PORT,
+                    resolved,
                     internet.getSocketFactory());
             HarpLog.i("B: Stage1 proxy finalizado");
         } catch (Exception e) {
