@@ -4,11 +4,19 @@ import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 
-/** Selects a validated Internet egress for relay B, never the Aware data path itself. */
+/**
+ * Selects a validated Internet egress for relay B, never the Aware data path itself.
+ * Preference order:
+ * 1) direct + validated + NOT_METERED
+ * 2) direct + validated
+ * 3) other non-VPN validated
+ * 4) validated VPN fallback
+ */
 final class InternetNetworkSelector {
     private InternetNetworkSelector() {}
 
     static Network choose(ConnectivityManager cm) {
+        Network directMetered = null;
         Network fallbackVpn = null;
         Network fallbackOther = null;
 
@@ -22,10 +30,19 @@ final class InternetNetworkSelector {
                     || caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
                     || caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET);
 
-            if (directTransport
+            boolean directNonVpn =
+                    directTransport
                     && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
-                    && !caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
+                    && !caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN);
+
+            if (directNonVpn
+                    && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)) {
                 return network;
+            }
+
+            if (directNonVpn && directMetered == null) {
+                directMetered = network;
+                continue;
             }
 
             if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
@@ -35,6 +52,7 @@ final class InternetNetworkSelector {
             }
         }
 
+        if (directMetered != null) return directMetered;
         if (fallbackOther != null) return fallbackOther;
         return fallbackVpn;
     }
