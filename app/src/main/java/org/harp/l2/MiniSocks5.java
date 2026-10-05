@@ -33,6 +33,7 @@ final class MiniSocks5 {
             String password,
             String allowedHost,
             int allowedPort,
+            InetAddress[] resolvedAddresses,
             SocketFactory outboundFactory) throws Exception {
         client.setSoTimeout(15_000);
         DataInputStream in = new DataInputStream(client.getInputStream());
@@ -78,19 +79,42 @@ final class MiniSocks5 {
             throw new IOException("destination not allowed: " + host + ":" + port);
         }
 
-        Socket upstream = outboundFactory.createSocket();
+        if (resolvedAddresses == null || resolvedAddresses.length == 0) {
+            sendReply(out, 0x04);
+            throw new IOException("no addresses resolved for " + host);
+        }
+
+        Socket upstream = null;
+        IOException last = null;
+        for (InetAddress address : resolvedAddresses) {
+            Socket candidate = outboundFactory.createSocket();
+            try {
+                candidate.connect(new InetSocketAddress(address, port), 10_000);
+                upstream = candidate;
+                break;
+            } catch (IOException e) {
+                last = e;
+                try { candidate.close(); } catch (Exception ignored) {}
+            }
+        }
+
+        if (upstream == null) {
+            sendReply(out, 0x05);
+            throw last != null ? last : new IOException("all upstream addresses failed");
+        }
+
+        final Socket connectedUpstream = upstream;
         try {
-            upstream.connect(new InetSocketAddress(host, port), 10_000);
-            upstream.setSoTimeout(30_000);
+            connectedUpstream.setSoTimeout(30_000);
             sendReply(out, 0x00);
             client.setSoTimeout(0);
 
-            Future<?> a = io.submit(() -> pipe(client, upstream));
-            Future<?> b = io.submit(() -> pipe(upstream, client));
+            Future<?> a = io.submit(() -> pipe(client, connectedUpstream));
+            Future<?> b = io.submit(() -> pipe(connectedUpstream, client));
             a.get();
             b.get();
         } finally {
-            try { upstream.close(); } catch (Exception ignored) {}
+            try { connectedUpstream.close(); } catch (Exception ignored) {}
         }
     }
 
