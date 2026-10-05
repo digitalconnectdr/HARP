@@ -16,8 +16,12 @@ import java.util.concurrent.Future;
 import javax.net.SocketFactory;
 
 /**
- * Minimal SOCKS5 CONNECT implementation for the controlled Stage-1 proof only.
- * It intentionally requires username/password and restricts the destination.
+ * Minimal authenticated SOCKS5 CONNECT engine for HARP.
+ *
+ * Authorization and DNS are injected by the caller:
+ * - policy decides which host/port and resolved addresses are allowed;
+ * - resolver lets Android resolve through the exact selected Network;
+ * - SocketFactory lets Android bind outbound TCP to that same Network.
  */
 final class MiniSocks5 {
     private static final int SOCKS_VERSION = 5;
@@ -31,9 +35,8 @@ final class MiniSocks5 {
             ExecutorService io,
             String username,
             String password,
-            String allowedHost,
-            int allowedPort,
-            InetAddress[] resolvedAddresses,
+            SocksDestinationPolicy policy,
+            SocksAddressResolver resolver,
             SocketFactory outboundFactory) throws Exception {
         client.setSoTimeout(15_000);
         DataInputStream in = new DataInputStream(client.getInputStream());
@@ -54,11 +57,12 @@ final class MiniSocks5 {
         out.write(new byte[]{0x05, 0x02});
         out.flush();
 
-        // RFC 1929 username/password sub-negotiation.
         if (u8(in) != 1) throw new IOException("auth version != 1");
         String gotUser = readUtf8(in, u8(in));
         String gotPass = readUtf8(in, u8(in));
-        boolean authOk = constantTimeEquals(username, gotUser) && constantTimeEquals(password, gotPass);
+        boolean authOk =
+                constantTimeEquals(username, gotUser)
+                && constantTimeEquals(password, gotPass);
         out.write(new byte[]{0x01, (byte) (authOk ? 0x00 : 0x01)});
         out.flush();
         if (!authOk) throw new IOException("SOCKS auth failed");
@@ -71,17 +75,35 @@ final class MiniSocks5 {
         int port = in.readUnsignedShort();
 
         if (cmd != CMD_CONNECT) {
-            sendReply(out, 0x07); // command not supported
+            sendReply(out, 0x07);
             throw new IOException("only CONNECT supported");
         }
-        if (!allowedHost.equalsIgnoreCase(host) || port != allowedPort) {
-            sendReply(out, 0x02); // connection not allowed by ruleset
-            throw new IOException("destination not allowed: " + host + ":" + port);
+
+        try {
+            policy.validateRequest(host, port);
+        } catch (IOException e) {
+            sendReply(out, 0x02);
+            throw e;
+        }
+
+        final InetAddress[] resolvedAddresses;
+        try {
+            resolvedAddresses = resolver.resolve(host);
+        } catch (IOException e) {
+            sendReply(out, 0x04);
+            throw e;
         }
 
         if (resolvedAddresses == null || resolvedAddresses.length == 0) {
             sendReply(out, 0x04);
             throw new IOException("no addresses resolved for " + host);
+        }
+
+        try {
+            policy.validateResolved(host, port, resolvedAddresses);
+        } catch (IOException e) {
+            sendReply(out, 0x02);
+            throw e;
         }
 
         Socket upstream = null;
@@ -147,9 +169,9 @@ final class MiniSocks5 {
         byte[] h = host.getBytes(StandardCharsets.US_ASCII);
         if (h.length == 0 || h.length > 255) throw new IOException("host too long");
         out.writeByte(5);
-        out.writeByte(1); // CONNECT
+        out.writeByte(1);
         out.writeByte(0);
-        out.writeByte(3); // DOMAIN
+        out.writeByte(3);
         out.writeByte(h.length);
         out.write(h);
         out.writeShort(port);
@@ -165,7 +187,6 @@ final class MiniSocks5 {
     }
 
     private static void sendReply(DataOutputStream out, int rep) throws IOException {
-        // BND.ADDR/BND.PORT are not needed by this proof; return 0.0.0.0:0.
         out.write(new byte[]{0x05, (byte) rep, 0x00, 0x01, 0, 0, 0, 0, 0, 0});
         out.flush();
     }
