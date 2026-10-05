@@ -234,7 +234,7 @@ final class HarpAwareController {
                         HarpLog.i("B: NDP lost");
                     }
                 };
-                cm.requestNetwork(req, netCb, NDP_TIMEOUT_MS);
+                cm.requestNetwork(req, netCb, main, NDP_TIMEOUT_MS);
                 pub.sendMessage(peer, MSG_READY,
                         Stage0Protocol.READY.getBytes(StandardCharsets.UTF_8));
                 serveStage0Then1();
@@ -331,7 +331,7 @@ final class HarpAwareController {
                     HarpLog.i("A: NDP lost");
                 }
             };
-            cm.requestNetwork(req, netCb, NDP_TIMEOUT_MS);
+            cm.requestNetwork(req, netCb, main, NDP_TIMEOUT_MS);
         } catch (Exception e) {
             HarpLog.i("A: NDP ERROR " + e.getClass().getSimpleName() + ": " + e.getMessage());
         }
