@@ -280,16 +280,20 @@ final class HarpAwareController {
                 return;
             }
             HarpLog.i("B: upstream=" + InternetNetworkSelector.describe(cm, internet));
-            java.net.InetAddress[] resolved =
-                    internet.getAllByName(Stage1InternetProbe.TARGET_HOST);
-            HarpLog.i("B: DNS via upstream count=" + resolved.length);
             MiniSocks5.serveOne(
-                    s, io,
+                    s,
+                    io,
                     Stage1InternetProbe.USER,
                     Stage1InternetProbe.PASS,
-                    Stage1InternetProbe.TARGET_HOST,
-                    Stage1InternetProbe.TARGET_PORT,
-                    resolved,
+                    SocksPolicies.exactPublicTarget(
+                            Stage1InternetProbe.TARGET_HOST,
+                            Stage1InternetProbe.TARGET_PORT),
+                    host -> {
+                        java.net.InetAddress[] resolved = internet.getAllByName(host);
+                        HarpLog.i("B: DNS via upstream host=" + host
+                                + " count=" + resolved.length);
+                        return resolved;
+                    },
                     internet.getSocketFactory());
             HarpLog.i("B: Stage1 proxy finalizado");
         } catch (Exception e) {
@@ -346,7 +350,7 @@ final class HarpAwareController {
         if (!started.compareAndSet(false, true)) return;
 
         InetSocketAddress dst = new InetSocketAddress(info.getPeerIpv6Addr(), info.getPort());
-        HarpLog.i("A: peer=" + dst + " proto=" + info.getTransportProtocol());
+        HarpLog.i("A: peer=" + dst + " advertisedPort=" + info.getPort());
         io.execute(() -> runTests(network, dst));
     }
 
