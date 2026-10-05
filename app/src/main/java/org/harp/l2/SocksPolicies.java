@@ -34,7 +34,7 @@ final class SocksPolicies {
         return new SocksDestinationPolicy() {
             @Override
             public void validateRequest(String host, int port) throws IOException {
-                if (host == null || host.isBlank() || host.length() > 253) {
+                if (host == null || host.trim().isEmpty() || host.length() > 253) {
                     throw new IOException("invalid destination host");
                 }
                 if (port != 80 && port != 443) {
