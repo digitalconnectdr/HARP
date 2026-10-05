@@ -48,7 +48,9 @@ final class ProtectedAwareBridge implements AutoCloseable {
 
         ServerSocket server = new ServerSocket();
         server.setReuseAddress(true);
-        server.bind(new InetSocketAddress(InetAddress.getLoopbackAddress(), DEFAULT_LOCAL_PORT));
+        InetAddress loopbackV4 =
+                InetAddress.getByAddress(new byte[]{127, 0, 0, 1});
+        server.bind(new InetSocketAddress(loopbackV4, DEFAULT_LOCAL_PORT));
         localServer = server;
 
         HarpLog.i("Stage2 bridge listening=127.0.0.1:" + DEFAULT_LOCAL_PORT
