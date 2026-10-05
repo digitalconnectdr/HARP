@@ -17,9 +17,14 @@ final class InternetNetworkSelector {
             NetworkCapabilities caps = cm.getNetworkCapabilities(network);
             if (caps == null) continue;
 
-            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+            boolean directTransport =
+                    caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
                     || caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
-                    || caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) {
+                    || caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET);
+
+            if (directTransport
+                    && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+                    && !caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
                 return network;
             }
 
