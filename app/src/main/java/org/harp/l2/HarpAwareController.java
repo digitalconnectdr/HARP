@@ -320,7 +320,9 @@ final class HarpAwareController {
                 @Override public void onAvailable(Network n) {
                     HarpLog.i("A: NDP available ndp_ms="
                             + (SystemClock.elapsedRealtime() - ndpStarted));
-                    maybeRun(n, cm.getNetworkCapabilities(n), started);
+                    // Android guarantees onCapabilitiesChanged() immediately after
+                    // onAvailable(); use that ordered callback instead of a
+                    // synchronous getNetworkCapabilities() lookup here.
                 }
 
                 @Override public void onCapabilitiesChanged(Network n, NetworkCapabilities caps) {
