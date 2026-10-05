@@ -3,6 +3,7 @@ plugins {
 }
 
 android {
+    enableKotlin = false
     namespace "org.harp.l2"
     compileSdk 36
 
