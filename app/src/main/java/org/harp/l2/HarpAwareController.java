@@ -197,7 +197,6 @@ final class HarpAwareController {
                         new WifiAwareNetworkSpecifier.Builder(pub, peer);
                 secure(sb);
                 sb.setPort(port);
-                sb.setTransportProtocol(6);
 
                 NetworkRequest req = new NetworkRequest.Builder()
                         .addTransportType(NetworkCapabilities.TRANSPORT_WIFI_AWARE)
