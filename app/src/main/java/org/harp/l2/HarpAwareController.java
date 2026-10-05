@@ -232,6 +232,10 @@ final class HarpAwareController {
                      new InputStreamReader(s.getInputStream(), StandardCharsets.UTF_8));
              PrintWriter out = new PrintWriter(
                      new OutputStreamWriter(s.getOutputStream(), StandardCharsets.UTF_8), true)) {
+            if (!isAwarePeer(s)) {
+                HarpLog.i("B: FAIL_STAGE0 non-link-local peer=" + s.getRemoteSocketAddress());
+                return;
+            }
             s.setSoTimeout(10000);
             String ping = in.readLine();
             HarpLog.i("B: Stage0 RX=" + ping);
@@ -247,6 +251,10 @@ final class HarpAwareController {
         }
 
         try (Socket s = server.accept()) {
+            if (!isAwarePeer(s)) {
+                HarpLog.i("B: FAIL_STAGE1 non-link-local peer=" + s.getRemoteSocketAddress());
+                return;
+            }
             Network internet = InternetNetworkSelector.choose(cm);
             if (internet == null) {
                 HarpLog.i("B: FAIL_STAGE1 sin Internet VALIDATED separado de Aware");
@@ -357,6 +365,11 @@ final class HarpAwareController {
         } catch (Exception e) {
             HarpLog.i("FAIL_STAGE1 " + e.getClass().getSimpleName() + ": " + e.getMessage());
         }
+    }
+
+    private static boolean isAwarePeer(Socket socket) {
+        java.net.InetAddress address = socket.getInetAddress();
+        return address instanceof java.net.Inet6Address && address.isLinkLocalAddress();
     }
 
     void close() {
