@@ -14,6 +14,7 @@ $Sources = @(
     (Join-Path $Root "app\src\main\java\org\harp\l2\SocksPolicies.java"),
     (Join-Path $Root "app\src\main\java\org\harp\l2\MiniSocks5.java"),
     (Join-Path $Root "app\src\main\java\org\harp\l2\Stage2SessionCredentials.java"),
+    (Join-Path $Root "app\src\main\java\org\harp\l2\Stage2ControlProtocol.java"),
     (Join-Path $Root "app\src\main\java\org\harp\l2\Stage2TunnelConfig.java"),
     (Join-Path $Root "tools\Stage01PureJavaSelfTest.java"),
     (Join-Path $Root "tools\Stage2PureJavaSelfTest.java")
