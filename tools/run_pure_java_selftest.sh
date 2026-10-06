@@ -14,6 +14,9 @@ javac -Xlint:all -Werror -d "$OUT" \
   "$ROOT/app/src/main/java/org/harp/l2/Stage2SessionCredentials.java" \
   "$ROOT/app/src/main/java/org/harp/l2/Stage2ControlProtocol.java" \
   "$ROOT/app/src/main/java/org/harp/l2/Stage2TunnelConfig.java" \
+  "$ROOT/app/src/main/java/org/harp/l2/SocketPeerPolicy.java" \
+  "$ROOT/app/src/main/java/org/harp/l2/SocketPeerPolicies.java" \
+  "$ROOT/app/src/main/java/org/harp/l2/Stage2RelayServer.java" \
   "$ROOT/tools/Stage01PureJavaSelfTest.java" \
   "$ROOT/tools/Stage2PureJavaSelfTest.java"
 
