@@ -12,6 +12,7 @@ javac -Xlint:all -Werror -d "$OUT" \
   "$ROOT/app/src/main/java/org/harp/l2/SocksPolicies.java" \
   "$ROOT/app/src/main/java/org/harp/l2/MiniSocks5.java" \
   "$ROOT/app/src/main/java/org/harp/l2/Stage2SessionCredentials.java" \
+  "$ROOT/app/src/main/java/org/harp/l2/Stage2ControlProtocol.java" \
   "$ROOT/app/src/main/java/org/harp/l2/Stage2TunnelConfig.java" \
   "$ROOT/tools/Stage01PureJavaSelfTest.java" \
   "$ROOT/tools/Stage2PureJavaSelfTest.java"
