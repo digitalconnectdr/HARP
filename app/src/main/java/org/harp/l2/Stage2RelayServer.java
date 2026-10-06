@@ -9,6 +9,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 import javax.net.SocketFactory;
 
@@ -31,6 +32,7 @@ final class Stage2RelayServer implements AutoCloseable {
             ConcurrentHashMap.newKeySet();
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean started = new AtomicBoolean();
+    private final Consumer<String> logger;
 
     Stage2RelayServer(
             ServerSocket listener,
@@ -39,7 +41,8 @@ final class Stage2RelayServer implements AutoCloseable {
             SocksAddressResolver resolver,
             SocketFactory outboundFactory,
             SocketPeerPolicy peerPolicy,
-            int maxConcurrentSessions) {
+            int maxConcurrentSessions,
+            Consumer<String> logger) {
         if (listener == null || listener.isClosed() || !listener.isBound()) {
             throw new IllegalArgumentException("listener must be bound and open");
         }
@@ -54,6 +57,7 @@ final class Stage2RelayServer implements AutoCloseable {
         this.peerPolicy = peerPolicy;
         this.sessionSlots = new Semaphore(maxConcurrentSessions);
         this.io = Executors.newCachedThreadPool();
+        this.logger = logger != null ? logger : ignored -> {};
     }
 
     void start() {
@@ -87,7 +91,7 @@ final class Stage2RelayServer implements AutoCloseable {
             } catch (IOException e) {
                 closeQuietly(client);
                 if (!closed.get()) {
-                    HarpLog.i("Stage2 relay accept ERROR "
+                    logger.accept("Stage2 relay accept ERROR "
                             + e.getClass().getSimpleName() + ": " + e.getMessage());
                 }
                 return;
@@ -107,7 +111,7 @@ final class Stage2RelayServer implements AutoCloseable {
                     outboundFactory);
         } catch (Exception e) {
             if (!closed.get()) {
-                HarpLog.i("Stage2 relay session ERROR "
+                logger.accept("Stage2 relay session ERROR "
                         + e.getClass().getSimpleName() + ": " + e.getMessage());
             }
         } finally {
@@ -123,7 +127,7 @@ final class Stage2RelayServer implements AutoCloseable {
         for (Socket socket : activeSockets) closeQuietly(socket);
         activeSockets.clear();
         io.shutdownNow();
-        HarpLog.i("Stage2 relay stopped");
+        logger.accept("Stage2 relay stopped");
     }
 
     private static void closeQuietly(AutoCloseable closeable) {
