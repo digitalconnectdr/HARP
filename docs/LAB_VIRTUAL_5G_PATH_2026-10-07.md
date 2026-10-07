@@ -526,3 +526,90 @@ The two tracks should only merge after both prove their core assumptions.
 9. Only then evaluate physical RF hardware.
 
 No GitHub Actions are required or planned for this laboratory.
+
+
+## 16. Upstream sidelink test detail — important boundary
+
+A deeper review found an upstream OAI container test dedicated to sidelink:
+
+```
+ci-scripts/yaml_files/5g_rfsimulator_sidelink/docker-compose.yaml
+```
+
+It launches:
+
+```
+nrUE-1:
+  --sl-mode 2
+  --sync-ref 4
+  --rfsim
+  acts as RFsim server
+
+nrUE-2:
+  --sl-mode 2
+  --rfsim
+  connects to nrUE-1
+```
+
+The associated CI test currently considers the receive-side evidence:
+
+```
+PSBCH RX:OK
+```
+
+on UE-2.
+
+This is stronger evidence than merely finding sidelink data structures: OAI has a maintained executable two-UE RFsim sidelink scenario.
+
+However, the current upstream automated assertion is **PSBCH synchronization/broadcast reception**, not end-to-end user data over PSSCH.
+
+Source review also finds MAC scheduler branches for PSCCH/PSSCH marked `TBD` in current code.
+
+Therefore split the software sidelink gate:
+
+### SL0 — synchronization
+
+```
+PASS_PC5_SYNC
+```
+
+Requires:
+
+- two nrUE containers;
+- no gNB;
+- UE-1 SyncRef;
+- UE-2 decodes sidelink synchronization;
+- `PSBCH RX:OK` observed.
+
+### SL1 — sidelink user data
+
+```
+PASS_PC5_DATA
+```
+
+Requires:
+
+- actual PSCCH/SCI scheduling;
+- PSSCH/SLSCH transmit and receive;
+- deterministic payload from UE-1 to UE-2;
+- payload integrity assertion.
+
+Current upstream OAI test does not by itself satisfy SL1.
+
+### SL2 — IP bearer over PC5
+
+```
+PASS_PC5_IP
+```
+
+Requires an IP-facing adaptation/bearer on top of the proven sidelink data path.
+
+### SL3 — UE-to-Network Relay
+
+```
+PASS_PROSE_U2N
+```
+
+Requires Remote UE + Relay UE semantics, authorization, relay service selection and Internet egress.
+
+This staged definition prevents HARP from treating PHY synchronization as if it were already a ProSe data relay.
