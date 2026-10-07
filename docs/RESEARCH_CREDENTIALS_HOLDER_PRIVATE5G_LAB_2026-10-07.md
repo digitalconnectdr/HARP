@@ -535,3 +535,30 @@ Score each against:
 The default recommendation at this research stage is:
 
 > Start Phase 1 with Open5GS + an open RAN/UE stack, but treat Phase 2–5 as patch/research work rather than pre-existing product features.
+
+
+## 15. Release boundary correction for Phase 5
+
+The Phase-5 wording above that refers to a “Release-17/18 UE/modem” is **not sufficient for the combined SNPN + ProSe target**.
+
+A standards re-check shows:
+
+- basic 5G ProSe work and UE-to-Network Relay precede Release 19;
+- explicit 5G ProSe support in NPN/SNPN is a Release-19 enhancement (`TEI19_ProSe_NPN`);
+- Release-19 RAN/CT changes add SNPN-specific NID handling and remove earlier SNPN ProSe limitations.
+
+Therefore the hardware rule for Phase 5 is now:
+
+> A modem/UE release number alone is insufficient. For HARP's final SNPN + ProSe architecture, require explicit vendor confirmation of ProSe-in-SNPN support and both Remote UE / Relay UE roles.
+
+The software lab should still develop the features independently:
+
+```
+SNPN identity/access
+        +
+PC5/sidelink
+        +
+ProSe relay semantics
+```
+
+and merge them only after each path is measurable.
