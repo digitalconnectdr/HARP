@@ -191,7 +191,7 @@ A dedicated standards review of eSIM RSP, 5G ProSe UE-to-Network Relay and SNPN 
 Key change to the research map:
 
 - eSIM RSP is provisioning infrastructure, not independent Internet access;
-- 5G ProSe U2N Relay is the closest standardized cellular-native equivalent of the HARP relay, but requires network authorization and Release-17-era support;
+- 5G ProSe U2N Relay is the closest standardized cellular-native equivalent of the HARP relay; basic ProSe relay work is earlier, but explicit ProSe operation in SNPN is a Release-19 feature set and requires network authorization;
 - SNPN onboarding plus an external Credentials Holder is now a primary HARP research branch because it separates connectivity identity/provisioning from the owner of the access network;
 - the current S22/X65 remains valid for the Wi-Fi Aware PoC, but should not be the sole hardware target for ProSe research.
 
@@ -228,3 +228,38 @@ New project decisions:
 - its current upstream automated evidence checks `PSBCH RX:OK`, which proves sidelink synchronization/broadcast reception, not PSSCH user data or ProSe U2N;
 - HARP now distinguishes `PASS_PC5_SYNC`, `PASS_PC5_DATA`, `PASS_PC5_IP` and `PASS_PROSE_U2N`;
 - no GitHub Actions are required for this work.
+
+
+## 12. SNPN encoding / Release-19 correction — 2026-10-07
+
+The concrete implementation plan is:
+
+- [OAI_SNPN_PATCH_PLAN_2026-10-07.md](OAI_SNPN_PATCH_PLAN_2026-10-07.md)
+
+Confirmed standards map:
+
+```
+SIB1 npn-IdentityInfoList-r16
+  -> PLMN + 44-bit NID = SNPN identity
+
+SIB1 snpn-AccessInfoList-r17
+  -> external-Credentials-Holder / onboarding / emergency capability flags
+
+SIB18
+  -> GIN information for Credentials Holder / onboarding network selection
+```
+
+Lab identity selected for the software-only experiment:
+
+```
+MCC 999 / MNC 99
+NID 10000000001
+```
+
+The NID is assignment-mode 1 and is lab-only. The final external-AAA Credentials Holder architecture must move to an appropriate coordinated identity model.
+
+Release boundary correction:
+
+- do not equate “Release 17 modem” with the final HARP feature set;
+- explicit ProSe support in SNPN is standardized through Release-19 work;
+- future hardware procurement for the combined architecture requires feature-level confirmation, not chipset release-number marketing.
