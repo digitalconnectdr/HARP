@@ -537,3 +537,411 @@ Require feature-level confirmation for:
 - **ProSe in SNPN / Rel-19 adaptations**.
 
 Until that confirmation exists, software RFsim remains the lowest-risk HARP research path.
+
+
+## 18. NAS and authentication gap — source-confirmed
+
+A source review of the current OAI `nrUE` found that a true SNPN registration requires more than the RRC work described above.
+
+### 18.1 Serving-network context is PLMN-only
+
+Current UE NAS context:
+
+```
+openair3/NAS/NR_UE/nr_nas_msg.h
+
+plmn_id_t *sn_id;
+```
+
+RRC currently assigns it in:
+
+```
+openair2/RRC/NR_UE/rrc_UE.c
+
+nas->sn_id = plmn_id;
+```
+
+This means NAS receives only MCC/MNC.
+
+For SNPN, HARP needs a serving-network context that can represent:
+
+```
+PLMN + NID
+```
+
+Suggested design shape:
+
+```
+typedef struct {
+    plmn_id_t plmn;
+    bool is_snpn;
+    uint64_t nid44;
+} serving_network_id_t;
+```
+
+Use OAI-native naming/types in the actual patch.
+
+### 18.2 UE Serving Network Name is PLMN-only
+
+Current nrUE helper:
+
+```
+static void servingNetworkName(uint8_t *msg, plmn_id_t *plmn_id)
+{
+    snprintf(...,
+      "5G:mnc%03d.mcc%03d.3gppnetwork.org",
+      plmn_id->mnc, plmn_id->mcc);
+}
+```
+
+That helper is consumed by:
+
+- RES* derivation;
+- K_AUSF derivation;
+- K_SEAF derivation.
+
+Therefore a visually correct SNPN broadcast is **not sufficient**.
+
+For SNPN the SNN must include the NID.
+
+For the HARP lab identity:
+
+```
+MCC = 999
+MNC = 99
+NID = 10000000001
+```
+
+the expected SNPN SNN is conceptually:
+
+```
+5G:mnc099.mcc999.3gppnetwork.org:10000000001
+```
+
+The exact formatting must continue to follow TS 24.501/TS 33.501.
+
+### 18.3 KDF impact
+
+Current UE functions:
+
+```
+transferRES(..., plmn_id_t *plmn_id)
+derive_kausf(..., plmn_id_t *plmn_id)
+derive_kseaf(..., plmn_id_t *plmn_id)
+```
+
+all call the PLMN-only `servingNetworkName()`.
+
+This must become:
+
+```
+transferRES(..., serving_network_id_t *sn)
+derive_kausf(..., serving_network_id_t *sn)
+derive_kseaf(..., serving_network_id_t *sn)
+```
+
+or an equivalent design where all three use one canonical SNN string.
+
+Critical invariant:
+
+> The UE and network must derive authentication material from the exact same SNN bytes.
+
+Add a deterministic test vector for the HARP PLMN+NID string before attempting registration.
+
+## 19. SNPN onboarding NAS gap
+
+Current file:
+
+```
+openair3/NAS/NR_UE/5GS/5GMM/IES/FGSRegistrationType.h
+```
+
+currently defines:
+
+```
+001 initial
+010 mobility update
+011 periodic update
+100 emergency
+111 reserved
+```
+
+Current Release-17+ TS 24.501 defines:
+
+```
+101 = SNPN onboarding registration
+```
+
+Therefore onboarding cannot be activated by configuration alone.
+
+Required work:
+
+1. add the SNPN onboarding registration type;
+2. add explicit NAS state indicating onboarding mode;
+3. select type 101 only when the UE intentionally starts onboarding;
+4. enforce onboarding-specific Registration Request content;
+5. in particular, ensure the onboarding Registration Request does not improperly include normal Requested NSSAI when the standard forbids it for that procedure;
+6. add encode/decode/unit tests before integrating with AMF.
+
+Create a separate gate:
+
+```
+PASS_V5G_SNPN_ONBOARD_NAS
+```
+
+This gate proves only correct UE NAS message construction/parsing, not DCS/PVS provisioning.
+
+## 20. Network-Specific-Identifier SUCI gap
+
+Current `Suci5GSMobileIdentity_t` and `fill_suci()` are effectively IMSI-oriented.
+
+Current encoder serializes:
+
+- MCC/MNC digits;
+- Routing Indicator;
+- Protection Scheme ID;
+- Home Network PKI;
+- scheme output.
+
+Current `fill_suci()` derives the identity from `uicc->imsiStr`.
+
+For the external Credentials Holder architecture, TS 24.501 supports the **Network-Specific Identifier** SUPI format, whose SUCI carries an NAI/UTF-8 identity rather than the IMSI-oriented layout.
+
+Therefore add a new mobile-identity variant/path rather than forcing an NAI into IMSI fields.
+
+Suggested software-UE credential model:
+
+```
+identity_mode = IMSI | NSI
+imsi = ...
+nsi = "device-id@harp-realm.example"
+credential_source = SOFTWARE_ME | USIM_STYLE
+```
+
+For the OAI RFsim laboratory, this credential object can live entirely in software.
+
+Current OAI `uicc_t` is already a software structure populated from configuration. No physical USIM/eUICC is required to prove the encoding and authentication flows.
+
+New gate:
+
+```
+PASS_HARP_NSI_SUCI
+```
+
+Requires:
+
+- NSI/NAI configured in software UE;
+- correct SUPI-format bits;
+- correct UTF-8 NAI encoding;
+- decoder round trip;
+- IMSI path remains unchanged;
+- malformed NAI rejected.
+
+Do not combine this gate with external AAA yet.
+
+## 21. Core-side SNN gap
+
+Current OAI AMF source constructs the serving-network name in:
+
+```
+src/utils/amf_conversions.cpp
+
+get_serving_network_name(mnc, mcc)
+```
+
+Current implementation returns only:
+
+```
+5G:mncXXX.mccYYY.3gppnetwork.org
+```
+
+Current N1 handler obtains only MCC and MNC from:
+
+```
+itti_uplink_nas_data_ind
+```
+
+and the current ITTI class contains:
+
+```
+bstring nas_msg;
+std::string mcc;
+std::string mnc;
+bool is_guti_valid;
+std::string guti;
+```
+
+There is no NID field.
+
+The AMF then places that SNN into the authentication context and its 5G-AKA KDF uses the string directly.
+
+This is good news:
+
+> The core KDF implementation already consumes a general SNN string. The cryptographic primitive does not need redesign; the identity propagation and SNN construction do.
+
+Required AMF changes:
+
+1. add optional NID to serving-network context;
+2. extend ITTI/RAN-to-N1 path to carry it;
+3. extend `get_serving_network_name()` with SNPN form;
+4. store exact SNN in NAS context;
+5. pass it unchanged to AUSF or local/simple-scenario auth;
+6. assert UE and network SNN byte-for-byte equality in tests.
+
+## 22. NGAP version gap
+
+A critical implementation finding:
+
+Current OAI gNB NGAP build is based on:
+
+```
+openair3/NGAP/MESSAGES/ASN1/ngap-15.8.0.cmake
+```
+
+Current TS 38.413 behavior for SNPN requires the NG-RAN/AMF interface to preserve SNPN identity.
+
+For network-shared SNPN operation, the INITIAL UE MESSAGE identifies the selected SNPN through:
+
+```
+PLMN Identity in TAI
++
+NID in User Location Information
+```
+
+Current OAI code constructing the Initial UE Message in:
+
+```
+openair3/NGAP/ngap_gNB_nas_procedures.c
+```
+
+fills ordinary NR CGI and TAI information but current repository search does not expose the later NID/NPN IEs required for the SNPN path.
+
+Therefore HARP must not claim standards-compliant end-to-end SNPN registration until this boundary is solved.
+
+### Two-path implementation strategy
+
+#### Path A — fast cryptographic laboratory
+
+Inject the same lab NID into UE and AMF configuration out-of-band.
+
+Topology:
+
+```
+RRC:
+  gNB broadcasts PLMN+NID
+  nrUE selects PLMN+NID
+
+NAS UE:
+  builds SNPN SNN from selected PLMN+NID
+
+AMF:
+  uses configured matching PLMN+NID
+  builds identical SNPN SNN
+
+KDF:
+  UE SNN == AMF SNN
+```
+
+This path deliberately bypasses standards-based NID transport across NGAP.
+
+Gate:
+
+```
+PASS_V5G_SNPN_KDF_LAB
+```
+
+Requires:
+
+- exact same canonical SNN on both sides;
+- RES*/K_AUSF/K_SEAF validation succeeds;
+- changing only NID causes authentication failure or deterministic KDF mismatch;
+- ordinary PLMN baseline remains working.
+
+This is a valid research proof but **not** a standards-compliant SNPN network proof.
+
+#### Path B — standards-compliant NGAP path
+
+Upgrade/extend OAI NGAP support sufficiently to encode/decode the SNPN NID in the standard NGAP location and carry it through gNB -> AMF internal context.
+
+Gate:
+
+```
+PASS_V5G_SNPN_NGAP
+```
+
+Requires:
+
+- packet capture shows NID over NGAP in the correct IE/structure;
+- AMF obtains NID from received NGAP, not static HARP configuration;
+- wrong/missing NID produces the expected rejection/mismatch behavior.
+
+Only then combine with AKA:
+
+```
+PASS_V5G_SNPN_AUTH
+```
+
+## 23. Revised SNPN gate ladder
+
+Use these gates in order:
+
+```
+PASS_V5G_SNPN_BROADCAST
+        |
+PASS_V5G_SNPN_SELECT
+        |
+PASS_V5G_SNPN_KDF_LAB
+        |
+PASS_V5G_SNPN_NGAP
+        |
+PASS_V5G_SNPN_AUTH
+        |
+PASS_V5G_SNPN_ONBOARD_NAS
+        |
+PASS_HARP_NSI_SUCI
+        |
+PASS_HARP_CH
+```
+
+Meaning:
+
+- **BROADCAST:** gNB SIB1 carries correct PLMN+44-bit NID.
+- **SELECT:** nrUE selects exact PLMN+NID.
+- **KDF_LAB:** UE/core use matching SNPN SNN; NID affects cryptographic derivation, with NID supplied to AMF out-of-band.
+- **NGAP:** NID travels by standards-based gNB->AMF signaling.
+- **AUTH:** actual SNPN 5G-AKA registration succeeds end-to-end.
+- **ONBOARD_NAS:** UE can construct correct type-101 onboarding Registration Request.
+- **NSI_SUCI:** software UE supports Network-Specific-Identifier/NAI identity format.
+- **HARP_CH:** external HARP Credentials Holder authentication succeeds.
+
+This ladder keeps three different problems separate:
+
+```
+radio network identity
+!=
+5G-AKA serving-network binding
+!=
+external Credentials Holder onboarding
+```
+
+## 24. Updated first patch scope
+
+The first HARP patch series should be intentionally smaller than full SNPN:
+
+```
+Patch 1: common 44-bit NID parser/formatter + tests
+Patch 2: gNB config + SIB1 NPN identity broadcast
+Patch 3: nrUE SIB1 SNPN decode/select
+Patch 4: nrUE serving-network context PLMN+NID
+Patch 5: canonical SNPN SNN helper + KDF tests
+Patch 6: AMF optional configured lab NID + canonical SNN helper
+Patch 7: PASS_V5G_SNPN_KDF_LAB
+```
+
+Only after Patch 7:
+
+```
+Patch 8+: NGAP ASN.1/version work and standards-based NID propagation
+```
+
+This order gives HARP measurable progress without letting the current NGAP Release-15 boundary block all SNPN research.
