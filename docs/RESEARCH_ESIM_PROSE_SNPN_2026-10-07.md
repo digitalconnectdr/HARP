@@ -487,3 +487,41 @@ Implication:
 - a production SNPN in conventional 3.5 GHz should be treated as a regulator/license/partner path, not an unlicensed app deployment;
 - generic-license 6 GHz is useful for Wi-Fi and experimental local connectivity, but it does not by itself prove NR-U/PC5 support on retail smartphones;
 - HARP should keep the **access-network partner / neutral-host** option explicit in the business architecture.
+
+
+## 11. Release-19 correction — ProSe inside SNPN
+
+A later standards pass found an important release boundary.
+
+5G ProSe and UE-to-Network Relay are still relevant as earlier 5G ProSe work, but **explicit support for ProSe in NPN/SNPN was added by the Release-19 work item `TEI19_ProSe_NPN`**.
+
+Current Release-19 TS 23.304 contains:
+
+```
+4.2.9 Support for 5G ProSe in NPNs
+4.2.9.1 Support for 5G ProSe in SNPN
+```
+
+The corresponding 3GPP change work removed prior statements that 5G Proximity Services were not supported for SNPN.
+
+Sources:
+
+- https://www.etsi.org/deliver/etsi_ts/123300_123399/123304/19.05.00_60/ts_123304v190500p.pdf
+- https://portal.3gpp.org/DesktopModules/CRs/CrDetails.aspx?CrId=531963
+- https://portal.3gpp.org/DesktopModules/CRs/CrDetails.aspx?CrId=584430
+
+### Consequence for HARP
+
+The combined target:
+
+```
+HARP Credentials Holder
++ SNPN
++ ProSe Remote/Relay
+```
+
+must be treated as a **Release-19-class feature set**.
+
+Earlier references in this document to Release-17-era ProSe should be read as referring to the origin/baseline of the ProSe relay feature, **not** as evidence that a Release-17 modem supports ProSe within an SNPN.
+
+Do not buy hardware for the combined architecture unless the vendor explicitly confirms ProSe-in-SNPN support, Remote UE role, Relay UE role, and software exposure.
