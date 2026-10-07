@@ -469,3 +469,21 @@ The research changes the project map:
 The long-term objective becomes:
 
 > HARP should control identity/provisioning and the user experience, while obtaining radio/user-plane access from a standards-based access layer that does not require Phone A to buy a conventional retail mobile-data subscription.
+
+
+## 10. Dominican Republic deployment note
+
+For a local SNPN/private-5G path, spectrum cannot be assumed to be freely available.
+
+INDOTEL's 2021 5G licensing process covered the 3300–3600 MHz band for public carrier/Internet services and awarded spectrum in that process to incumbent concessionaires. The 2025 PNAF review also confirms a regulated spectrum framework while allowing the 5925–7125 MHz band under generic low/very-low-power licensing conditions.
+
+Sources:
+
+- https://indotel.gob.do/wp-content/uploads/2022/10/resolucion_116_reordenamiento_de_frecuencias_banda_3300___3600_mhz_conforme__licitacion_publica_internacional-1.pdf
+- https://indotel.gob.do/wp-content/uploads/2025/05/0_Res._032-2025_PNAF2025rev.pdf
+
+Implication:
+
+- a production SNPN in conventional 3.5 GHz should be treated as a regulator/license/partner path, not an unlicensed app deployment;
+- generic-license 6 GHz is useful for Wi-Fi and experimental local connectivity, but it does not by itself prove NR-U/PC5 support on retail smartphones;
+- HARP should keep the **access-network partner / neutral-host** option explicit in the business architecture.
