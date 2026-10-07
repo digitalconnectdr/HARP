@@ -194,3 +194,19 @@ Key change to the research map:
 - 5G ProSe U2N Relay is the closest standardized cellular-native equivalent of the HARP relay, but requires network authorization and Release-17-era support;
 - SNPN onboarding plus an external Credentials Holder is now a primary HARP research branch because it separates connectivity identity/provisioning from the owner of the access network;
 - the current S22/X65 remains valid for the Wi-Fi Aware PoC, but should not be the sole hardware target for ProSe research.
+
+
+## 10. Credentials Holder / private 5G lab update — 2026-10-07
+
+Detailed architecture and phased lab plan:
+
+- [RESEARCH_CREDENTIALS_HOLDER_PRIVATE5G_LAB_2026-10-07.md](RESEARCH_CREDENTIALS_HOLDER_PRIVATE5G_LAB_2026-10-07.md)
+
+Key decisions:
+
+- treat HARP identity/control and radio access as separable layers;
+- target Network-Specific-Identifier SUPI + external AAA for the HARP Credentials Holder branch;
+- start with ordinary 5G SA before SNPN, onboarding or ProSe;
+- do not assume Open5GS/free5GC/srsRAN currently provide turnkey Release-17 SNPN onboarding or ProSe U2N;
+- OAI is the more promising open research platform for advanced SNPN/sidelink work, but still contains unsupported paths and active integration work;
+- retail Android remains OEM/baseband constrained for SNPN credential/configuration and ProSe roles.
