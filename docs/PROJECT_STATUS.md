@@ -180,3 +180,17 @@ Do not spend time optimizing multi-hop, FEC, battery, UI polish or commercial co
 Do not claim Stage-2 until normal Android app traffic on A crosses the VPN/TUN path.
 
 Do not claim the final HARP objective from an A↔B lab relay; the relay exists to validate networking primitives only.
+
+
+## 9. Research update — 2026-10-07
+
+A dedicated standards review of eSIM RSP, 5G ProSe UE-to-Network Relay and SNPN onboarding is documented in:
+
+- [RESEARCH_ESIM_PROSE_SNPN_2026-10-07.md](RESEARCH_ESIM_PROSE_SNPN_2026-10-07.md)
+
+Key change to the research map:
+
+- eSIM RSP is provisioning infrastructure, not independent Internet access;
+- 5G ProSe U2N Relay is the closest standardized cellular-native equivalent of the HARP relay, but requires network authorization and Release-17-era support;
+- SNPN onboarding plus an external Credentials Holder is now a primary HARP research branch because it separates connectivity identity/provisioning from the owner of the access network;
+- the current S22/X65 remains valid for the Wi-Fi Aware PoC, but should not be the sole hardware target for ProSe research.
