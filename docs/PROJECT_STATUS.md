@@ -210,3 +210,21 @@ Key decisions:
 - do not assume Open5GS/free5GC/srsRAN currently provide turnkey Release-17 SNPN onboarding or ProSe U2N;
 - OAI is the more promising open research platform for advanced SNPN/sidelink work, but still contains unsupported paths and active integration work;
 - retail Android remains OEM/baseband constrained for SNPN credential/configuration and ProSe roles.
+
+
+## 11. Virtual 5G lab update — 2026-10-07
+
+A zero-RF-hardware path is now documented in:
+
+- [LAB_VIRTUAL_5G_PATH_2026-10-07.md](LAB_VIRTUAL_5G_PATH_2026-10-07.md)
+
+New project decisions:
+
+- reproduce OAI's official full-stack 5G SA RFSimulator scenario before buying SDR/modem/private-5G hardware;
+- first virtual gate is `PASS_V5G_0A`: software nrUE -> RFsim -> gNB -> 5GC -> user-plane/Internet;
+- second gate is HARP-controlled virtual identity issue/revoke;
+- only then patch SNPN/NID behavior;
+- OAI currently has a concrete two-nrUE RFsim sidelink scenario with no gNB;
+- its current upstream automated evidence checks `PSBCH RX:OK`, which proves sidelink synchronization/broadcast reception, not PSSCH user data or ProSe U2N;
+- HARP now distinguishes `PASS_PC5_SYNC`, `PASS_PC5_DATA`, `PASS_PC5_IP` and `PASS_PROSE_U2N`;
+- no GitHub Actions are required for this work.
