@@ -1,0 +1,255 @@
+From HARP research branch
+Subject: [PATCH 4] NR UE: select configured SNPN PLMN+NID before random access
+
+Depends on:
+  0001-nr-ue-serving-network-baseline-refactor.patch
+  0002-nr-ue-snpn-serving-network-name.patch
+
+Upstream anchor:
+  openairinterface/openairinterface5g
+  f8f769592a7030be88ede4bb5ca66fa1ca6a80e0
+
+Lab UICC configuration:
+
+  uicc0 = {
+    imsi = "999990000000001";
+    nmc_size = 2;
+    snpn_nid = "10000000001";
+    ...
+  };
+
+When snpn_nid is absent/empty, existing PLMN behavior is preserved.
+When present, RRC requires an exact SIB1 SNPN match on:
+  home MCC derived from IMSI
+  home MNC derived from IMSI/nmc_size
+  configured 44-bit NID
+
+A mismatch returns before SIB1 validity/RA trigger is published.
+
+diff --git a/openair3/UICC/usim_interface.h b/openair3/UICC/usim_interface.h
+--- a/openair3/UICC/usim_interface.h
++++ b/openair3/UICC/usim_interface.h
+@@
+ typedef struct {
+   char *imsiStr;
++  char *snpn_nidStr;
+   char *imeisvStr;
+
+diff --git a/openair3/UICC/usim_interface.c b/openair3/UICC/usim_interface.c
+--- a/openair3/UICC/usim_interface.c
++++ b/openair3/UICC/usim_interface.c
+@@
+ #define UICC_PARAMS_DESC {                                                                                                                                                         \
+       {"imsi",                       "USIM IMSI\n",                  0, .strptr=&uicc->imsiStr,                    .defstrval="2089900007487",                    TYPE_STRING, 0}, \
+       {"nmc_size",                   "number of digits in NMC",      0, .iptr=&uicc->nmc_size,                     .defintval=2,                                  TYPE_INT,    0}, \
++      {"snpn_nid",                   "SNPN NID (11 hex digits, empty disables SNPN selection)\n", 0, .strptr=&uicc->snpn_nidStr, .defstrval="", TYPE_STRING, 0}, \
+       {"key",                        "USIM Ki\n",                    0, .strptr=&uicc->keyStr,                     .defstrval="fec86ba6eb707ed08905757b1bb44b8f", TYPE_STRING, 0}, \
+@@
+   AssertFatal(ret >= 0, "configuration couldn't be performed for uicc name: %s", sectionName);
++  if (uicc->snpn_nidStr && uicc->snpn_nidStr[0] != '\0') {
++    AssertFatal(strlen(uicc->snpn_nidStr) == 11,
++                "%s.snpn_nid must contain exactly 11 hexadecimal digits\n",
++                sectionName);
++    for (int i = 0; i < 11; ++i)
++      AssertFatal(isxdigit((unsigned char)uicc->snpn_nidStr[i]),
++                  "%s.snpn_nid contains a non-hexadecimal character\n",
++                  sectionName);
++    LOG_I(SIM, "UICC simulation: target SNPN NID=%s\n", uicc->snpn_nidStr);
++  }
+   LOG_I(SIM, "UICC simulation: IMSI=%s, IMEISV=%s, Ki=%s, OPc=%s\n", uicc->imsiStr, uicc->imeisvStr, uicc->keyStr, uicc->opcStr);
+
+diff --git a/openair2/RRC/NR_UE/rrc_UE.c b/openair2/RRC/NR_UE/rrc_UE.c
+--- a/openair2/RRC/NR_UE/rrc_UE.c
++++ b/openair2/RRC/NR_UE/rrc_UE.c
+@@
++static bool harp_decode_nid44(const NR_NID_r16_t *nid_ie, uint64_t *nid)
++{
++  if (!nid_ie || !nid || nid_ie->size != 6 || nid_ie->bits_unused != 4)
++    return false;
++  if ((nid_ie->buf[5] & 0x0f) != 0)
++    return false;
++
++  uint64_t shifted = 0;
++  for (int i = 0; i < 6; ++i)
++    shifted = (shifted << 8) | nid_ie->buf[i];
++  *nid = shifted >> 4;
++  return *nid <= 0xFFFFFFFFFFFULL;
++}
++
++static bool harp_plmn_from_asn1(
++    const NR_PLMN_Identity_t *plmn,
++    plmn_id_t *out)
++{
++  if (!plmn || !out || !plmn->mcc
++      || plmn->mcc->list.count != 3
++      || (plmn->mnc.list.count != 2 && plmn->mnc.list.count != 3))
++    return false;
++
++  out->mcc = (*plmn->mcc->list.array[0]) * 100
++      + (*plmn->mcc->list.array[1]) * 10
++      + (*plmn->mcc->list.array[2]);
++  out->mnc_digit_length = plmn->mnc.list.count;
++  out->mnc = 0;
++  for (int i = 0; i < plmn->mnc.list.count; ++i)
++    out->mnc = out->mnc * 10 + *plmn->mnc.list.array[i];
++  return true;
++}
++
++static bool harp_home_plmn_from_uicc(
++    const uicc_t *uicc,
++    plmn_id_t *out)
++{
++  if (!uicc || !out || !uicc->imsiStr)
++    return false;
++  const size_t imsi_len = strlen(uicc->imsiStr);
++  if (imsi_len < (size_t)(3 + uicc->nmc_size)
++      || (uicc->nmc_size != 2 && uicc->nmc_size != 3))
++    return false;
++
++  for (int i = 0; i < 3 + uicc->nmc_size; ++i)
++    if (!isdigit((unsigned char)uicc->imsiStr[i]))
++      return false;
++
++  out->mcc = (uicc->imsiStr[0] - '0') * 100
++      + (uicc->imsiStr[1] - '0') * 10
++      + (uicc->imsiStr[2] - '0');
++  out->mnc_digit_length = uicc->nmc_size;
++  out->mnc = 0;
++  for (int i = 0; i < uicc->nmc_size; ++i)
++    out->mnc = out->mnc * 10 + (uicc->imsiStr[3 + i] - '0');
++  return true;
++}
++
++static bool harp_parse_target_nid(
++    const uicc_t *uicc,
++    uint64_t *target_nid)
++{
++  if (!uicc || !target_nid || !uicc->snpn_nidStr
++      || uicc->snpn_nidStr[0] == '\0')
++    return false;
++
++  if (strlen(uicc->snpn_nidStr) != 11)
++    return false;
++  char *end = NULL;
++  errno = 0;
++  const unsigned long long value =
++      strtoull(uicc->snpn_nidStr, &end, 16);
++  if (errno == ERANGE || end == uicc->snpn_nidStr
++      || *end != '\0' || value > 0xFFFFFFFFFFFULL)
++    return false;
++  *target_nid = (uint64_t)value;
++  return true;
++}
++
++static bool harp_select_snpn(
++    const NR_SIB1_t *sib1,
++    const uicc_t *uicc,
++    nr_serving_network_id_t *selected)
++{
++  uint64_t target_nid = 0;
++  if (!harp_parse_target_nid(uicc, &target_nid))
++    return false;
++
++  plmn_id_t target_plmn = {0};
++  if (!harp_home_plmn_from_uicc(uicc, &target_plmn))
++    return false;
++
++  if (!sib1->cellAccessRelatedInfo.ext1
++      || !sib1->cellAccessRelatedInfo.ext1->npn_IdentityInfoList_r16) {
++    LOG_W(NR_RRC,
++          "HARP_SNPN_REJECT reason=npn_list_missing expected=%011llX\n",
++          (unsigned long long)target_nid);
++    return false;
++  }
++
++  const NR_NPN_IdentityInfoList_r16_t *info_list =
++      sib1->cellAccessRelatedInfo.ext1->npn_IdentityInfoList_r16;
++  for (int i = 0; i < info_list->list.count; ++i) {
++    const NR_NPN_IdentityInfo_r16_t *info = info_list->list.array[i];
++    for (int j = 0; j < info->npn_IdentityList_r16.list.count; ++j) {
++      const NR_NPN_Identity_r16_t *identity =
++          info->npn_IdentityList_r16.list.array[j];
++      if (!identity
++          || identity->present != NR_NPN_Identity_r16_PR_snpn_r16
++          || !identity->choice.snpn_r16)
++        continue;
++
++      plmn_id_t seen_plmn = {0};
++      if (!harp_plmn_from_asn1(
++              &identity->choice.snpn_r16->plmn_Identity_r16,
++              &seen_plmn))
++        continue;
++
++      if (seen_plmn.mcc != target_plmn.mcc
++          || seen_plmn.mnc != target_plmn.mnc
++          || seen_plmn.mnc_digit_length != target_plmn.mnc_digit_length)
++        continue;
++
++      const struct NR_NPN_Identity_r16__snpn_r16__nid_List_r16 *nids =
++          &identity->choice.snpn_r16->nid_List_r16;
++      for (int k = 0; k < nids->list.count; ++k) {
++        uint64_t seen_nid = 0;
++        if (!harp_decode_nid44(nids->list.array[k], &seen_nid))
++          continue;
++        LOG_I(NR_RRC,
++              "HARP_SNPN_SEEN mcc=%d mnc=%d nid=%011llX\n",
++              seen_plmn.mcc,
++              seen_plmn.mnc,
++              (unsigned long long)seen_nid);
++        if (seen_nid != target_nid)
++          continue;
++
++        selected->plmn = seen_plmn;
++        selected->has_nid = true;
++        selected->nid = seen_nid;
++        LOG_I(NR_RRC,
++              "PASS_V5G_SNPN_SELECT mcc=%d mnc=%d nid=%011llX\n",
++              selected->plmn.mcc,
++              selected->plmn.mnc,
++              (unsigned long long)selected->nid);
++        return true;
++      }
++    }
++  }
++
++  LOG_W(NR_RRC,
++        "HARP_SNPN_REJECT reason=no_exact_match mcc=%d mnc=%d expected=%011llX\n",
++        target_plmn.mcc,
++        target_plmn.mnc,
++        (unsigned long long)target_nid);
++  return false;
++}
++
+ static void nr_rrc_process_sib1(NR_UE_RRC_INST_t *rrc, NR_UE_RRC_SI_INFO *SI_info, NR_SIB1_t *sib1)
+ {
+@@
+-  nr_ue_nas_t *nas = get_ue_nas_info(rrc->ue_id);
+-  nr_serving_network_id_t *serving_network = &nas->serving_network;
+-  plmn_id_t *plmn_id = &serving_network->plmn;
+-  serving_network->has_nid = false;
+-  serving_network->nid = 0;
+-  nas->serving_network_valid = false;
++  nr_ue_nas_t *nas = get_ue_nas_info(rrc->ue_id);
++  nr_serving_network_id_t *serving_network = &nas->serving_network;
++  plmn_id_t *plmn_id = &serving_network->plmn;
++  serving_network->has_nid = false;
++  serving_network->nid = 0;
++  nas->serving_network_valid = false;
+@@
+-  nas->serving_network_valid = true;
++  const bool snpn_required =
++      nas->uicc
++      && nas->uicc->snpn_nidStr
++      && nas->uicc->snpn_nidStr[0] != '\0';
++  if (snpn_required) {
++    nr_serving_network_id_t selected = {0};
++    if (!harp_select_snpn(sib1, nas->uicc, &selected)) {
++      LOG_W(NR_RRC,
++            "HARP SNPN selection failed; Random Access remains blocked\n");
++      return;
++    }
++    *serving_network = selected;
++  }
++  nas->serving_network_valid = true;
+ 
+   /* Extract 36-bit NR Cell Identity */
