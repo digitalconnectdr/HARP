@@ -1,0 +1,38 @@
+From HARP research branch
+Subject: [PATCH 2/2] NR UE: add SNPN NID to serving network name
+
+Depends on:
+  0001-nr-ue-serving-network-baseline-refactor.patch
+
+Upstream anchor:
+  openairinterface/openairinterface5g
+  f8f769592a7030be88ede4bb5ca66fa1ca6a80e0
+
+This patch changes only SNN formatting when serving_network.has_nid=true.
+Population of the NID from SIB1 is intentionally a later patch.
+
+diff --git a/openair3/NAS/NR_UE/nr_nas_msg.c b/openair3/NAS/NR_UE/nr_nas_msg.c
+--- a/openair3/NAS/NR_UE/nr_nas_msg.c
++++ b/openair3/NAS/NR_UE/nr_nas_msg.c
+@@
+ static void servingNetworkName(uint8_t *msg, const nr_serving_network_id_t *sn)
+ {
+   // SNN-network-identifier in TS 24.501
+   // TS 24.501: If the MNC of the serving PLMN has two digits, then a zero is added at the beginning.
+-  int size = 64;
++  int size = 80;
+ 
+   const plmn_id_t *plmn_id = &sn->plmn;
+-  snprintf((char *)msg, size, "5G:mnc%03d.mcc%03d.3gppnetwork.org", plmn_id->mnc, plmn_id->mcc);
++  if (sn->has_nid) {
++    AssertFatal(sn->nid <= 0xFFFFFFFFFFFULL, "SNPN NID exceeds 44 bits");
++    snprintf((char *)msg,
++             size,
++             "5G:mnc%03d.mcc%03d.3gppnetwork.org:%011llX",
++             plmn_id->mnc,
++             plmn_id->mcc,
++             (unsigned long long)sn->nid);
++  } else {
++    snprintf((char *)msg, size, "5G:mnc%03d.mcc%03d.3gppnetwork.org", plmn_id->mnc, plmn_id->mcc);
++  }
+ }
