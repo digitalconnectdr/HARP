@@ -5,6 +5,8 @@ import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.pm.PackageManager;
+import android.content.Intent;
+import android.net.VpnService;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
@@ -16,6 +18,7 @@ import android.widget.Toast;
 
 public final class MainActivity extends Activity implements HarpLog.Listener {
     private static final int REQ_PERMS = 41;
+    private static final int REQ_VPN = 42;
     private TextView log;
     private HarpAwareController controller;
 
@@ -34,10 +37,12 @@ public final class MainActivity extends Activity implements HarpLog.Listener {
 
         Button relay = button("B — RELAY", v -> startRelay());
         Button client = button("A — CLIENTE", v -> startClient());
+        Button vpn = button("A — ACTIVAR VPN (Stage2A)", v -> prepareVpn());
         Button stop = button("DETENER", v -> resetController());
         Button copy = button("COPIAR LOG", v -> copyLog());
         root.addView(relay);
         root.addView(client);
+        root.addView(vpn);
         root.addView(stop);
         root.addView(copy);
 
@@ -101,7 +106,52 @@ public final class MainActivity extends Activity implements HarpLog.Listener {
         controller.startRelay();
     }
 
+    private void prepareVpn() {
+        Stage2VpnSession session = HarpRuntime.currentVpnSession();
+        if (session == null) {
+            HarpLog.i("VPN no listo: primero requiere PASS_STAGE2_RELAY");
+            return;
+        }
+        if (!HevTunnelAdapter.isPackaged()) {
+            HarpLog.i("VPN no listo: HEV AAR no incluido en este build local");
+            return;
+        }
+
+        Intent prepare = VpnService.prepare(this);
+        if (prepare != null) {
+            HarpLog.i("Solicitando consentimiento VPN del sistema");
+            startActivityForResult(prepare, REQ_VPN);
+        } else {
+            startStage2Vpn();
+        }
+    }
+
+    private void startStage2Vpn() {
+        if (HarpRuntime.currentVpnSession() == null) {
+            HarpLog.i("VPN no listo: la sesión Stage2 ya no está disponible");
+            return;
+        }
+        Intent intent = new Intent(this, HarpVpnService.class)
+                .setAction(HarpVpnService.ACTION_START);
+        startForegroundService(intent);
+        HarpLog.i("Stage2 VPN start solicitado");
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQ_VPN) return;
+
+        if (resultCode == RESULT_OK) {
+            HarpLog.i("Consentimiento VPN aprobado");
+            startStage2Vpn();
+        } else {
+            HarpLog.i("Consentimiento VPN rechazado");
+        }
+    }
+
     private void resetController() {
+        stopService(new Intent(this, HarpVpnService.class));
         resetControllerSilently();
         HarpLog.i("Sesiones detenidas");
     }
