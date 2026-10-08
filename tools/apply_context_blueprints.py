@@ -11,6 +11,9 @@ For every hunk:
 
 The old block must occur exactly once in the target file. Any missing or
 ambiguous anchor is a hard failure.
+
+Explicit `new file mode` sections are also supported. They must contain one
+additions-only hunk, and the destination must not already exist.
 """
 
 from __future__ import annotations
@@ -28,12 +31,14 @@ class Hunk:
     path: str
     old_lines: list[str]
     new_lines: list[str]
+    new_file: bool = False
 
 
 def parse_blueprint(path: pathlib.Path) -> list[Hunk]:
     lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
     hunks: list[Hunk] = []
     target: str | None = None
+    new_file = False
     i = 0
 
     while i < len(lines):
@@ -43,6 +48,14 @@ def parse_blueprint(path: pathlib.Path) -> list[Hunk]:
             if len(parts) != 4 or not parts[3].startswith("b/"):
                 raise ValueError(f"{path}: malformed diff header: {line!r}")
             target = parts[3][2:]
+            new_file = False
+            i += 1
+            continue
+
+        if line.startswith("new file mode "):
+            if target is None:
+                raise ValueError(f"{path}: new-file marker before diff header")
+            new_file = True
             i += 1
             continue
 
@@ -66,24 +79,39 @@ def parse_blueprint(path: pathlib.Path) -> list[Hunk]:
                     old.append(hline[1:])
                     new.append(hline[1:])
                 elif hline == "\n":
-                    # Outside a real unified hunk this is metadata spacing.
+                    # A blank line with no diff prefix ends a context-only hunk.
                     break
                 else:
-                    # Metadata after a context-only hunk.
                     break
                 i += 1
 
-            if not old:
+            if not old and not new_file:
                 raise ValueError(
                     f"{path}: {target}: insertion hunk has no context anchor"
                 )
-            hunks.append(Hunk(target, old, new))
+            if new_file and old:
+                raise ValueError(
+                    f"{path}: {target}: new-file hunk must contain additions only"
+                )
+            if new_file and not new:
+                raise ValueError(f"{path}: {target}: empty new-file hunk")
+            hunks.append(Hunk(target, old, new, new_file=new_file))
             continue
 
         i += 1
 
     if not hunks:
         raise ValueError(f"{path}: no context hunks found")
+
+    # A new file must be represented by exactly one additions-only hunk.
+    new_targets = {h.path for h in hunks if h.new_file}
+    for target_path in new_targets:
+        target_hunks = [h for h in hunks if h.path == target_path]
+        if len(target_hunks) != 1 or not target_hunks[0].new_file:
+            raise ValueError(
+                f"{path}: {target_path}: new file must have exactly one hunk"
+            )
+
     return hunks
 
 
@@ -111,9 +139,26 @@ def apply_hunks(
 
     total = 0
     staged: dict[pathlib.Path, list[str]] = {}
+    new_targets: set[pathlib.Path] = set()
 
     for rel, file_hunks in by_file.items():
         target = checkout / rel
+        is_new = any(h.new_file for h in file_hunks)
+
+        if is_new:
+            if len(file_hunks) != 1 or not file_hunks[0].new_file:
+                raise RuntimeError(
+                    f"{rel}: new file must have exactly one additions-only hunk"
+                )
+            if target.exists():
+                raise FileExistsError(
+                    f"new-file target already exists: {target}"
+                )
+            staged[target] = file_hunks[0].new_lines
+            new_targets.add(target)
+            total += 1
+            continue
+
         if not target.is_file():
             raise FileNotFoundError(f"missing target file: {target}")
         content = target.read_text(encoding="utf-8").splitlines(keepends=True)
@@ -132,6 +177,8 @@ def apply_hunks(
 
     if not check_only:
         for target, content in staged.items():
+            if target in new_targets:
+                target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text("".join(content), encoding="utf-8")
 
     return total
