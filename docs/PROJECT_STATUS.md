@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-07  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `e7548f10a7f01d8e3edd5ccf3924c9868f95335e`
+**Baseline commit reviewed through:** `c384a5460f58abc244cd7cc07bc0093ed4a45703`
 
 ## 1. Product objective
 
@@ -694,6 +694,102 @@ Detailed validation record:
 - commit `e7548f10a7f01d8e3edd5ccf3924c9868f95335e`.
 
 These are still static/source-level PASS markers, not OAI build/RFsim or phone-validation claims.
+
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 22. Cryptographic baseline gates + AMF lab NID source — 2026-10-08
+
+nrUE test integration:
+
+- OAI's existing `openair3/NAS/NR_UE/5GS/tests/nas_lib_test.c` links directly against `nr_nas`, so HARP can validate SNN/KDF behavior inside the upstream test framework without RFsim;
+- `acd8c3c9d210b7ffedfc2ac08aa134905f6cacb8`: staged `0001b-nr-ue-snn-formatter-baseline-test.patch`;
+- new sub-gate:
+  `PASS_V5G_SNN_FORMAT_BASELINE`;
+- `22bc9e42b21c42e1d3ab508a8206553a72ec92b4`: staged `0001c-nr-ue-kdf-baseline-test.patch`;
+- this adds deterministic ordinary-PLMN RES*, K_AUSF and K_SEAF regression vectors;
+- gate:
+  `PASS_V5G_SNN_REFACTOR_BASELINE`.
+
+Reference ordinary-PLMN vector for `5G:mnc015.mcc234.3gppnetwork.org`:
+
+```
+RES*   = e5c9b031ea670bc494e4db45fb1cf267
+KAUSF  = 1789cd7d88b07b803330574544da1bfcb52c67ec14b4075b4b36d262d773dc83
+KSEAF  = e40038b02ad5457c40f27f92e92bdd735c7720287ecbd7ff304f7751d7bf2191
+```
+
+The vectors are reproducible with:
+
+```
+tools/oai_snpn/kdf_baseline_vectors.py
+```
+
+SNPN nrUE cryptographic binding:
+
+- `1a0a8b631adfa74e15d1acc9ad0aaf291078a1f8`: staged SNPN patch now also checks RES*, K_AUSF and K_SEAF with the HARP lab NID;
+- changing only NID from `10000000001` to `10000000002` must change all three derived values;
+- new UE-only marker:
+  `PASS_V5G_SNPN_KDF_UE`;
+- `adda3063562b2f4d008a964329fa6761448dd560`: vector generator extended with positive and mismatched-NID SNPN cases.
+
+HARP lab SNPN nrUE vector:
+
+```
+SNN     = 5G:mnc099.mcc999.3gppnetwork.org:10000000001
+RES*    = 4a880d868e07cb3ad0a3ef39b21eebe5
+KAUSF   = 742c95dd9003e1c6c148236f5f8c9f9f2b89b02b2d898d989d4de00189ff5626
+KSEAF   = a19ff0f63a0093d859f72233688e472a3283493bc2e852f030d9de7aaf9e93b4
+```
+
+AMF/AUSF integration:
+
+- `db5b4150f3de94b3c281d30c7edea748742146e3`: documented exact SNN flow through AMF;
+- external-AUSF mode sends `nc->serving_network` as `AuthenticationInfo.servingNetworkName`;
+- simple-scenario mode consumes the same string in local UDM/AUSF emulation and `derive_kseaf()`;
+- therefore NID injection must happen before `nc->serving_network` is stored.
+
+AMF lab bridge:
+
+- `64622f4175ae2a062eae06ed7625087e3ccd68b2` + `61b96cd220807ae13a520ffdfdc6b1dc234c750d`: staged `0002-amf-lab-snpn-nid-config.patch`;
+- optional YAML:
+  `amf.snpn_nid: "10000000001"`;
+- absent -> ordinary PLMN behavior;
+- present -> exactly 11 hex digits / <=44 bits;
+- both current AMF SNN construction sites use it;
+- explicitly lab-only until NID arrives through standards-compliant serving-network/NGAP context;
+- `c384a5460f58abc244cd7cc07bc0093ed4a45703`: AMF patch staging documentation updated.
+
+Updated gate sequence:
+
+```
+PASS_NID44_VECTORS
+        |
+PASS_SNN_VECTORS
+        |
+PASS_AMF_SNN_VECTORS
+        |
+PASS_UE_AMF_SNN_MATCH
+        |
+PASS_V5G_SNN_FORMAT_BASELINE
+        |
+PASS_V5G_SNN_REFACTOR_BASELINE
+        |
+PASS_V5G_SNPN_SNN
+        |
+PASS_V5G_SNPN_KDF_UE
+        |
+PASS_V5G_SNPN_SIB1_CODEC
+        |
+PASS_V5G_SNPN_BROADCAST
+        |
+PASS_V5G_SNPN_SELECT
+        |
+PASS_V5G_SNPN_KDF_LAB
+        |
+PASS_V5G_SNPN_KDF_NEGATIVE
+```
 
 No GitHub Actions were used.
 No phone installation is required yet.
