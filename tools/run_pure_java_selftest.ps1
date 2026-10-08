@@ -19,6 +19,8 @@ $Sources = @(
     (Join-Path $Root "app\src\main\java\org\harp\l2\SocketPeerPolicy.java"),
     (Join-Path $Root "app\src\main\java\org\harp\l2\SocketPeerPolicies.java"),
     (Join-Path $Root "app\src\main\java\org\harp\l2\Stage2RelayServer.java"),
+    (Join-Path $Root "app\src\main\java\org\harp\l2\HevTunnelAdapter.java"),
+    (Join-Path $Root "tools\hev\htproxy\TProxyService.java"),
     (Join-Path $Root "tools\Stage01PureJavaSelfTest.java"),
     (Join-Path $Root "tools\Stage2PureJavaSelfTest.java")
 )
