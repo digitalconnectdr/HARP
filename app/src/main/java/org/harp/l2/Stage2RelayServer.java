@@ -77,17 +77,6 @@ final class Stage2RelayServer implements AutoCloseable {
             Socket client = null;
             try {
                 client = listener.accept();
-                peerPolicy.validate(client);
-
-                if (!sessionSlots.tryAcquire()) {
-                    closeQuietly(client);
-                    continue;
-                }
-
-                activeSockets.add(client);
-                Socket accepted = client;
-                io.execute(() -> serveClient(accepted));
-                client = null;
             } catch (IOException e) {
                 closeQuietly(client);
                 if (!closed.get()) {
@@ -95,6 +84,35 @@ final class Stage2RelayServer implements AutoCloseable {
                             + e.getClass().getSimpleName() + ": " + e.getMessage());
                 }
                 return;
+            }
+
+            try {
+                peerPolicy.validate(client);
+            } catch (IOException e) {
+                logger.accept("Stage2 relay peer REJECTED "
+                        + e.getClass().getSimpleName() + ": " + e.getMessage());
+                closeQuietly(client);
+                continue;
+            }
+
+            if (!sessionSlots.tryAcquire()) {
+                logger.accept("Stage2 relay BUSY");
+                closeQuietly(client);
+                continue;
+            }
+
+            activeSockets.add(client);
+            Socket accepted = client;
+            try {
+                io.execute(() -> serveClient(accepted));
+            } catch (RuntimeException e) {
+                activeSockets.remove(accepted);
+                sessionSlots.release();
+                closeQuietly(accepted);
+                if (!closed.get()) {
+                    logger.accept("Stage2 relay dispatch ERROR "
+                            + e.getClass().getSimpleName() + ": " + e.getMessage());
+                }
             }
         }
     }
