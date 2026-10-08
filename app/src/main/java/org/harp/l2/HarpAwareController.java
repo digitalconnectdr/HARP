@@ -1,6 +1,7 @@
 package org.harp.l2;
 
 import android.content.Context;
+import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
@@ -42,6 +43,7 @@ final class HarpAwareController {
     private static final int MSG_READY_RETRY = 4;
     private static final int NDP_TIMEOUT_MS = 30000;
 
+    private final Context appContext;
     private final WifiAwareManager aware;
     private final ConnectivityManager cm;
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -65,9 +67,9 @@ final class HarpAwareController {
     private final AtomicBoolean clientNdpStarted = new AtomicBoolean();
 
     HarpAwareController(Context context) {
-        Context app = context.getApplicationContext();
-        aware = app.getSystemService(WifiAwareManager.class);
-        cm = app.getSystemService(ConnectivityManager.class);
+        appContext = context.getApplicationContext();
+        aware = appContext.getSystemService(WifiAwareManager.class);
+        cm = appContext.getSystemService(ConnectivityManager.class);
     }
 
     void startRelay() {
@@ -231,9 +233,11 @@ final class HarpAwareController {
                     }
                     @Override public void onUnavailable() {
                         HarpLog.i("B: NDP_TIMEOUT");
+                        closeRelayTransport();
                     }
                     @Override public void onLost(Network n) {
-                        HarpLog.i("B: NDP lost");
+                        HarpLog.i("B: NDP lost; stopping relay transport");
+                        closeRelayTransport();
                     }
                 };
                 cm.requestNetwork(req, netCb, main, NDP_TIMEOUT_MS);
@@ -395,12 +399,15 @@ final class HarpAwareController {
                 }
 
                 @Override public void onUnavailable() {
-                    HarpLog.i("A: NDP_TIMEOUT");
+                    vpnSession = null;
+                    stopStage2VpnAfterTransportLoss();
+                    HarpLog.i("A: NDP_TIMEOUT; Stage2 VPN stopped");
                 }
 
                 @Override public void onLost(Network n) {
                     vpnSession = null;
-                    HarpLog.i("A: NDP lost; Stage2 VPN session invalidated");
+                    stopStage2VpnAfterTransportLoss();
+                    HarpLog.i("A: NDP lost; Stage2 VPN stopped and session invalidated");
                 }
             };
             cm.requestNetwork(req, netCb, main, NDP_TIMEOUT_MS);
@@ -505,6 +512,34 @@ final class HarpAwareController {
 
     Stage2VpnSession stage2VpnSession() {
         return vpnSession;
+    }
+
+    private void stopStage2VpnAfterTransportLoss() {
+        try {
+            Intent stop = new Intent(appContext, HarpVpnService.class)
+                    .setAction(HarpVpnService.ACTION_STOP);
+            // stopService() guarantees onDestroy()/shutdown even if the service
+            // does not receive a new start command. ACTION_STOP is retained for
+            // explicit callers and future service-command handling.
+            appContext.stopService(stop);
+        } catch (RuntimeException e) {
+            HarpLog.i("Stage2 VPN stop warning after NDP loss: "
+                    + e.getClass().getSimpleName() + ": " + e.getMessage());
+        }
+    }
+
+    private synchronized void closeRelayTransport() {
+        try {
+            if (stage2Relay != null) {
+                stage2Relay.close();
+                stage2Relay = null;
+            } else if (server != null) {
+                server.close();
+            }
+        } catch (Exception e) {
+            HarpLog.i("B: relay transport close warning "
+                    + e.getClass().getSimpleName() + ": " + e.getMessage());
+        }
     }
 
     private static boolean isAwarePeer(Socket socket) {
