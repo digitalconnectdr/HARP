@@ -23,8 +23,20 @@ final class Stage1InternetProbe {
     private Stage1InternetProbe() {}
 
     static String run(Socket awareSocket) throws Exception {
+        return run(awareSocket, USER, PASS);
+    }
+
+    static String run(
+            Socket awareSocket,
+            String username,
+            String password) throws Exception {
         awareSocket.setSoTimeout(15_000);
-        MiniSocks5.clientConnect(awareSocket, USER, PASS, TARGET_HOST, TARGET_PORT);
+        MiniSocks5.clientConnect(
+                awareSocket,
+                username,
+                password,
+                TARGET_HOST,
+                TARGET_PORT);
 
         SSLSocketFactory f = (SSLSocketFactory) SSLSocketFactory.getDefault();
         try (SSLSocket tls = (SSLSocket) f.createSocket(
