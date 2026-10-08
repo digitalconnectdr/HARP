@@ -14,6 +14,7 @@ They are research patches stored in HARP so the work does not depend on GitHub A
 ```
 0001-nr-ue-serving-network-baseline-refactor.patch
 0001b-nr-ue-snn-formatter-baseline-test.patch
+0001c-nr-ue-kdf-baseline-test.patch
 0002-nr-ue-snpn-serving-network-name.patch
 ```
 
@@ -40,9 +41,28 @@ PASS_V5G_SNN_FORMAT_BASELINE
 
 This proves the refactored formatter preserves the ordinary PLMN SNN and rejects truncation.
 
-Do not treat this as the full KDF baseline. `PASS_V5G_SNN_REFACTOR_BASELINE` still requires ordinary PLMN RES*/K_AUSF/K_SEAF equality.
+Do not treat this as the full KDF baseline.
 
-Do not apply patch 0002 until the formatter baseline passes and the KDF regression work is ready.
+### Patch 0001c
+
+Purpose:
+
+- add deterministic ordinary-PLMN RES*, K_AUSF and K_SEAF vectors to OAI's existing `nas_lib_test`;
+- prove the serving-network type refactor has not changed any of those outputs.
+
+Gate:
+
+```
+PASS_V5G_SNN_REFACTOR_BASELINE
+```
+
+The reference vectors are independently regenerable with:
+
+```
+tools/oai_snpn/kdf_baseline_vectors.py
+```
+
+Do not apply patch 0002 until both `PASS_V5G_SNN_FORMAT_BASELINE` and `PASS_V5G_SNN_REFACTOR_BASELINE` pass.
 
 ### Patch 0001b
 
