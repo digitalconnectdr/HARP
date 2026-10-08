@@ -16,6 +16,9 @@ They are research patches stored in HARP so the work does not depend on GitHub A
 0001b-nr-ue-snn-formatter-baseline-test.patch
 0001c-nr-ue-kdf-baseline-test.patch
 0002-nr-ue-snpn-serving-network-name.patch
+0003a-gnb-snpn-config-plumbing.patch
+0003b-gnb-snpn-sib1-encoding.patch
+0003c-snpn-npn-codec-test.patch
 ```
 
 ### Patch 0001
@@ -64,21 +67,6 @@ tools/oai_snpn/kdf_baseline_vectors.py
 
 Do not apply patch 0002 until both `PASS_V5G_SNN_FORMAT_BASELINE` and `PASS_V5G_SNN_REFACTOR_BASELINE` pass.
 
-### Patch 0001b
-
-Purpose:
-
-- expose the nrUE SNN formatter through `nr_nas_msg.h`;
-- exercise it through OAI's existing `nas_lib_test`;
-- prove two-digit and three-digit MNC behavior;
-- reject output truncation.
-
-Gate:
-
-```
-PASS_V5G_SNN_FORMAT_BASELINE
-```
-
 ### Patch 0002
 
 Purpose:
@@ -93,6 +81,61 @@ Gate:
 
 ```
 PASS_V5G_SNPN_SNN
+PASS_V5G_SNPN_KDF_UE
+```
+
+### Patch 0003a
+
+Purpose:
+
+- add a separate lab-only `snpn` gNB configuration block;
+- parse/validate an exactly 44-bit NID;
+- carry the typed SNPN config through `nr_mac_config_t` into `get_SIB1_NR()`;
+- do not alter ASN.1 yet.
+
+Example:
+
+```
+snpn = {
+  enabled = "yes";
+  nid = "10000000001";
+};
+```
+
+### Patch 0003b
+
+Purpose:
+
+- build `npn-IdentityInfoList-r16` in SIB1 when SNPN is enabled;
+- reuse PLMN/TAC/cell-ID semantics;
+- encode NID as a six-octet BIT STRING with four unused low bits;
+- leave ordinary PLMN SIB1 behavior intact when disabled.
+
+The generated C layout was cross-checked against public OAI/asn1c Rel-16 build artifacts and the exact Rel-17.3.0 ASN.1 grammar blob from the pinned OAI commit.
+
+This patch still requires compilation against the actual generated Rel-17.3.0 headers.
+
+### Patch 0003c
+
+Purpose:
+
+- exercise `NPN-IdentityInfoList-r16` directly in OAI's existing GTest RRC ASN.1 test target;
+- encode/decode PLMN 999/99 + NID `10000000001`;
+- verify NID bytes `10 00 00 00 00 10`;
+- verify `bits_unused == 4`.
+
+Gate:
+
+```
+PASS_V5G_SNPN_NPN_CODEC
+```
+
+This precedes the full-SIB1 gate:
+
+```
+PASS_V5G_SNPN_NPN_CODEC
+        |
+PASS_V5G_SNPN_SIB1_CODEC
 ```
 
 ## Validation policy
@@ -118,7 +161,7 @@ Do not claim either OAI gate from the existence of these patch files alone.
 
 Still intentionally deferred:
 
-- SIB1 NID population in gNB;
+- full SIB1 codec fixture around `get_SIB1_NR()`;
 - nrUE `npn-IdentityInfoList-r16` decode;
 - storing selected NID into `serving_network`;
 - AMF SNPN SNN;
