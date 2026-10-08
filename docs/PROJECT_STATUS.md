@@ -60,7 +60,15 @@ Apps / Chrome on A
   -> Internet selected by B
 ```
 
-The remaining Stage-2 gap is therefore specifically the Android `VpnService` lifecycle and TUN integration. The VPN is not yet activated from the UI.
+The Android Stage-2A VPN source is now wired but remains **uncompiled and unvalidated**:
+
+- `HarpVpnService` establishes the IPv4 TUN, excludes the HARP package, declares Aware as the underlying network, starts `ProtectedAwareBridge`, and invokes HEV through `HevTunnelAdapter`.
+- `MainActivity` exposes an explicit user-driven **A — ACTIVAR VPN (Stage2A)** flow using `VpnService.prepare()`.
+- the manifest declares the VPN service, disables always-on for this PoC, and uses foreground-service type `connectedDevice`.
+- `HarpRuntime` owns the Aware session at process scope so Activity recreation does not tear down the NDP.
+- the VPN handoff is published only after `PASS_STAGE2_RELAY`, and is invalidated if A's NDP is lost.
+
+The remaining gap is now build/device validation of that source, not the basic lifecycle design.
 
 ## 3. Validation status
 
@@ -153,11 +161,10 @@ If any stage fails, diagnose that layer before introducing the VPN.
 
 Only after G3 passes:
 
-- add and activate Android `VpnService` from a visible user action;
-- use foreground-service type `connectedDevice`;
-- integrate the verified HEV 2.18.0 Android AAR locally;
-- connect `ProtectedAwareBridge` to the actual VPN lifecycle;
-- reuse the already proven persistent `Stage2RelayServer` on B;
+- fetch and verify the HEV 2.18.0 Android AAR locally;
+- build the existing Stage-2A VPN source without GitHub Actions;
+- after G3 passes, press **A — ACTIVAR VPN (Stage2A)** and approve the system VPN prompt;
+- require `PASS_STAGE2_VPN_STARTED`;
 - route TCP-first traffic from normal apps/Chrome on A;
 - test HTTPS with A having no native Internet.
 
