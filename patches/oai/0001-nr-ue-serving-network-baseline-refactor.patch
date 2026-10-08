@@ -107,6 +107,7 @@ diff --git a/openair3/NAS/NR_UE/nr_nas_msg.c b/openair3/NAS/NR_UE/nr_nas_msg.c
 @@
    DevAssert(nas != NULL);
 +  AssertFatal(nas->serving_network_valid, "Serving network identity not initialized");
+   uint8_t *kausf = nas->security.kausf;
 @@
 -  transferRES(ck, ik, resTemp, rand, output, nas->sn_id);
 +  transferRES(ck, ik, resTemp, rand, output, &nas->serving_network);
