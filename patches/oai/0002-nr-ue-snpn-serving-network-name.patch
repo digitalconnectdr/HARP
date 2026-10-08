@@ -197,6 +197,7 @@ diff --git a/openair3/NAS/NR_UE/5GS/tests/nas_lib_test.c b/openair3/NAS/NR_UE/5G
 @@
    // Tests list
    test_serving_network_name_baseline();
+   test_serving_network_kdf_baseline();
 +  test_serving_network_name_snpn();
 +  test_serving_network_kdf_snpn();
    test_regression_registration_accept();
