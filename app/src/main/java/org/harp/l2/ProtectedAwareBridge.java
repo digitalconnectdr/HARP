@@ -11,8 +11,12 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -30,6 +34,7 @@ final class ProtectedAwareBridge implements AutoCloseable {
     private final InetSocketAddress relayAddress;
     private final ExecutorService io = Executors.newCachedThreadPool();
     private final AtomicBoolean closed = new AtomicBoolean();
+    private final Set<Socket> activeSockets = ConcurrentHashMap.newKeySet();
 
     private ServerSocket localServer;
 
@@ -37,6 +42,10 @@ final class ProtectedAwareBridge implements AutoCloseable {
             VpnService vpn,
             Network awareNetwork,
             InetSocketAddress relayAddress) {
+        if (vpn == null) throw new IllegalArgumentException("vpn is null");
+        if (awareNetwork == null) {
+            throw new IllegalArgumentException("awareNetwork is null");
+        }
         this.vpn = vpn;
         this.awareNetwork = awareNetwork;
         this.relayAddress = requireAwareRelay(relayAddress);
@@ -62,6 +71,10 @@ final class ProtectedAwareBridge implements AutoCloseable {
         while (!closed.get()) {
             try {
                 Socket downstream = localServer.accept();
+                if (closed.get()) {
+                    closeQuietly(downstream);
+                    return;
+                }
                 io.execute(() -> handle(downstream));
             } catch (IOException e) {
                 if (!closed.get()) {
@@ -74,27 +87,53 @@ final class ProtectedAwareBridge implements AutoCloseable {
     }
 
     private void handle(Socket downstream) {
-        try (Socket local = downstream; Socket upstream = new Socket()) {
+        Socket upstream = new Socket();
+        activeSockets.add(downstream);
+        activeSockets.add(upstream);
+
+        try (Socket local = downstream; Socket remote = upstream) {
             local.setSoTimeout(0);
 
-            if (!vpn.protect(upstream)) {
+            // Protect first so the tunnel transport cannot be captured by its
+            // own VpnService route.
+            if (!vpn.protect(remote)) {
                 throw new IOException("VpnService.protect() failed");
             }
 
-            // Must happen before connect(): Android requires an unconnected socket.
-            awareNetwork.bindSocket(upstream);
-            upstream.connect(relayAddress, 10_000);
-            upstream.setSoTimeout(0);
+            // Android requires the socket to still be unconnected here.
+            awareNetwork.bindSocket(remote);
+            remote.connect(relayAddress, 10_000);
+            remote.setSoTimeout(0);
 
             HarpLog.i("Stage2 bridge stream connected relay=" + relayAddress);
 
-            io.execute(() -> copy(local, upstream));
-            copy(upstream, local);
+            Future<?> localToRelay = io.submit(() -> copy(local, remote));
+            Future<?> relayToLocal = io.submit(() -> copy(remote, local));
+            await(localToRelay);
+            await(relayToLocal);
         } catch (IOException e) {
             if (!closed.get()) {
                 HarpLog.i("Stage2 bridge stream ERROR "
                         + e.getClass().getSimpleName() + ": " + e.getMessage());
             }
+        } finally {
+            activeSockets.remove(downstream);
+            activeSockets.remove(upstream);
+            closeQuietly(downstream);
+            closeQuietly(upstream);
+        }
+    }
+
+    private static void await(Future<?> future) throws IOException {
+        try {
+            future.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("bridge interrupted", e);
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof IOException) throw (IOException) cause;
+            throw new IOException("bridge copy failed", cause);
         }
     }
 
@@ -117,10 +156,14 @@ final class ProtectedAwareBridge implements AutoCloseable {
     @Override
     public synchronized void close() {
         if (!closed.compareAndSet(false, true)) return;
-        try {
-            if (localServer != null) localServer.close();
-        } catch (IOException ignored) {
+
+        if (localServer != null) {
+            try { localServer.close(); } catch (IOException ignored) {}
         }
+
+        for (Socket socket : activeSockets) closeQuietly(socket);
+        activeSockets.clear();
+
         io.shutdownNow();
         HarpLog.i("Stage2 bridge stopped");
     }
@@ -137,5 +180,10 @@ final class ProtectedAwareBridge implements AutoCloseable {
             throw new IllegalArgumentException("invalid relay port");
         }
         return address;
+    }
+
+    private static void closeQuietly(Socket socket) {
+        if (socket == null) return;
+        try { socket.close(); } catch (IOException ignored) {}
     }
 }
