@@ -17,6 +17,8 @@ javac -Xlint:all -Werror -d "$OUT" \
   "$ROOT/app/src/main/java/org/harp/l2/SocketPeerPolicy.java" \
   "$ROOT/app/src/main/java/org/harp/l2/SocketPeerPolicies.java" \
   "$ROOT/app/src/main/java/org/harp/l2/Stage2RelayServer.java" \
+  "$ROOT/app/src/main/java/org/harp/l2/HevTunnelAdapter.java" \
+  "$ROOT/tools/hev/htproxy/TProxyService.java" \
   "$ROOT/tools/Stage01PureJavaSelfTest.java" \
   "$ROOT/tools/Stage2PureJavaSelfTest.java"
 
