@@ -7,6 +7,7 @@ import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
+import android.net.LinkProperties;
 import android.net.wifi.aware.AttachCallback;
 import android.net.wifi.aware.DiscoverySessionCallback;
 import android.net.wifi.aware.PeerHandle;
@@ -59,6 +60,8 @@ final class HarpAwareController {
     private ConnectivityManager.NetworkCallback netCb;
     private ConnectivityManager.NetworkCallback upstreamCb;
     private volatile Network relayUpstreamNetwork;
+    private volatile int relayAwareInterfaceIndex;
+    private volatile String relayAwareInterfaceName;
     private ServerSocket server;
     private Stage2RelayServer stage2Relay;
     private volatile Network clientAwareNetwork;
@@ -260,6 +263,10 @@ final class HarpAwareController {
                 netCb = new ConnectivityManager.NetworkCallback() {
                     @Override public void onAvailable(Network n) {
                         HarpLog.i("B: NDP available " + n);
+                    }
+                    @Override public void onLinkPropertiesChanged(
+                            Network n, LinkProperties lp) {
+                        recordRelayAwareInterface(lp);
                     }
                     @Override public void onUnavailable() {
                         HarpLog.i("B: NDP_TIMEOUT");
@@ -580,6 +587,27 @@ final class HarpAwareController {
     }
 
 
+
+    private void recordRelayAwareInterface(LinkProperties lp) {
+        if (lp == null) return;
+        String name = lp.getInterfaceName();
+        if (name == null || name.isEmpty()) return;
+        try {
+            java.net.NetworkInterface nif = java.net.NetworkInterface.getByName(name);
+            if (nif == null) {
+                HarpLog.i("B: Aware interface name=" + name + " index=unresolved");
+                return;
+            }
+            relayAwareInterfaceName = name;
+            relayAwareInterfaceIndex = nif.getIndex();
+            HarpLog.i("B: Aware interface name=" + name
+                    + " index=" + relayAwareInterfaceIndex);
+        } catch (Exception e) {
+            HarpLog.i("B: Aware interface resolve warning "
+                    + e.getClass().getSimpleName() + ": " + e.getMessage());
+        }
+    }
+
     private synchronized void registerRelayUpstreamWatch(Network internet) {
         unregisterRelayUpstreamWatch();
         relayUpstreamNetwork = internet;
@@ -630,6 +658,8 @@ final class HarpAwareController {
 
     private synchronized void closeRelayTransport() {
         unregisterRelayUpstreamWatch();
+        relayAwareInterfaceIndex = 0;
+        relayAwareInterfaceName = null;
         try {
             if (stage2Relay != null) {
                 stage2Relay.close();
@@ -643,9 +673,40 @@ final class HarpAwareController {
         }
     }
 
-    private static boolean isAwarePeer(Socket socket) {
-        java.net.InetAddress address = socket.getInetAddress();
-        return address instanceof java.net.Inet6Address && address.isLinkLocalAddress();
+    private boolean isAwarePeer(Socket socket) {
+        java.net.InetAddress remote = socket.getInetAddress();
+        if (!(remote instanceof java.net.Inet6Address) || !remote.isLinkLocalAddress()) {
+            return false;
+        }
+
+        int expected = relayAwareInterfaceIndex;
+        if (expected <= 0) {
+            HarpLog.i("B: peer scope check unavailable remote=" + remote
+                    + " awareIf=" + relayAwareInterfaceName);
+            return true;
+        }
+
+        int remoteScope = ((java.net.Inet6Address) remote).getScopeId();
+        java.net.InetAddress local = socket.getLocalAddress();
+        int localScope = local instanceof java.net.Inet6Address
+                ? ((java.net.Inet6Address) local).getScopeId()
+                : 0;
+
+        if ((remoteScope != 0 || localScope != 0)
+                && remoteScope != expected
+                && localScope != expected) {
+            HarpLog.i("B: peer scope mismatch expectedIf=" + relayAwareInterfaceName
+                    + " expectedIndex=" + expected
+                    + " remoteScope=" + remoteScope
+                    + " localScope=" + localScope);
+            return false;
+        }
+
+        HarpLog.i("B: peer scope accepted expectedIf=" + relayAwareInterfaceName
+                + " expectedIndex=" + expected
+                + " remoteScope=" + remoteScope
+                + " localScope=" + localScope);
+        return true;
     }
 
     void close() {
@@ -653,6 +714,8 @@ final class HarpAwareController {
         closed = true;
         clientAwareNetwork = null;
         vpnSession = null;
+        relayAwareInterfaceIndex = 0;
+        relayAwareInterfaceName = null;
         try { if (netCb != null) cm.unregisterNetworkCallback(netCb); } catch (Exception ignored) {}
         unregisterRelayUpstreamWatch();
         try {
