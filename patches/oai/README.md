@@ -30,6 +30,7 @@ The strict applicator requires every old context block to match exactly once and
 0003a-gnb-snpn-config-plumbing.patch
 0003b-gnb-snpn-sib1-encoding.patch
 0003c-snpn-npn-codec-test.patch
+0003d-snpn-cell-access-codec-test.patch
 0004-nr-ue-snpn-selection.patch
 0004b-nr-ue-snpn-selection-unit-test.patch
 0004c-snpn-full-sib1-codec-test.patch
@@ -144,13 +145,32 @@ Gate:
 PASS_V5G_SNPN_NPN_CODEC
 ```
 
-This precedes the full-SIB1 gate:
+This precedes a second extension-container codec gate and then the full-SIB1 gate:
 
 ```
 PASS_V5G_SNPN_NPN_CODEC
         |
+PASS_V5G_SNPN_CELL_ACCESS_CODEC
+        |
 PASS_V5G_SNPN_SIB1_CODEC
 ```
+
+### Patch 0003d
+
+Purpose:
+
+- encode/decode the actual `CellAccessRelatedInfo` container;
+- prove that the Rel-16 NPN list is carried under `ext1`;
+- verify PLMN 999/99 + exact 44-bit HARP NID after UPER round-trip;
+- keep the Rel-17 `ext2/snpn-AccessInfoList-r17` path independent.
+
+Gate:
+
+```
+PASS_V5G_SNPN_CELL_ACCESS_CODEC
+```
+
+The `ext1`/SNPN-choice layout was cross-checked against generated OAI/asn1c artifacts, including a Rel-17 artifact exposing `ext1->npn_IdentityInfoList_r16` and `ext2->snpn_AccessInfoList_r17`.
 
 ### Patch 0004
 
