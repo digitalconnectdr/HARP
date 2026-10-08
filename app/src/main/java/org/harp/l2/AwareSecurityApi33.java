@@ -21,18 +21,27 @@ final class AwareSecurityApi33 {
         }
 
         int suites = characteristics.getSupportedCipherSuites();
-        if ((suites & Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_SK_128) == 0) {
+
+        final int selected;
+        final String selectedName;
+        if ((suites & Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_SK_256) != 0) {
+            selected = Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_SK_256;
+            selectedName = "NCS_SK_256";
+        } else if ((suites & Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_SK_128) != 0) {
+            selected = Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_SK_128;
+            selectedName = "NCS_SK_128";
+        } else {
             throw new IllegalStateException(
-                    "NCS_SK_128 unsupported; suites=0x" + Integer.toHexString(suites));
+                    "no supported shared-key Aware cipher; suites=0x"
+                            + Integer.toHexString(suites));
         }
 
         WifiAwareDataPathSecurityConfig security =
-                new WifiAwareDataPathSecurityConfig.Builder(
-                        Characteristics.WIFI_AWARE_CIPHER_SUITE_NCS_SK_128)
+                new WifiAwareDataPathSecurityConfig.Builder(selected)
                         .setPskPassphrase(passphrase)
                         .build();
 
         builder.setDataPathSecurityConfig(security);
-        HarpLog.i("Aware security=NCS_SK_128");
+        HarpLog.i("Aware security=" + selectedName);
     }
 }
