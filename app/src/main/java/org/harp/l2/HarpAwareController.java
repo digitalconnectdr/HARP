@@ -55,6 +55,7 @@ final class HarpAwareController {
     private PeerHandle clientPeer;
     private ConnectivityManager.NetworkCallback netCb;
     private ServerSocket server;
+    private Stage2RelayServer stage2Relay;
     private volatile boolean closed;
     private long discoverStarted;
     private long ndpStarted;
@@ -269,12 +270,13 @@ final class HarpAwareController {
             return;
         }
 
+        final Network internet;
         try (Socket s = server.accept()) {
             if (!isAwarePeer(s)) {
                 HarpLog.i("B: FAIL_STAGE1 non-link-local peer=" + s.getRemoteSocketAddress());
                 return;
             }
-            Network internet = InternetNetworkSelector.choose(cm);
+            internet = InternetNetworkSelector.choose(cm);
             if (internet == null) {
                 HarpLog.i("B: FAIL_STAGE1 sin Internet VALIDATED separado de Aware");
                 return;
@@ -299,6 +301,68 @@ final class HarpAwareController {
         } catch (Exception e) {
             HarpLog.i("B: FAIL_STAGE1 proxy " + e.getClass().getSimpleName()
                     + ": " + e.getMessage());
+            return;
+        }
+
+        startStage2Relay(internet);
+    }
+
+    private void startStage2Relay(Network internet) {
+        Stage2SessionCredentials credentials =
+                Stage2SessionCredentials.create(random);
+
+        try (Socket control = server.accept();
+             BufferedReader in = new BufferedReader(
+                     new InputStreamReader(
+                             control.getInputStream(), StandardCharsets.UTF_8));
+             PrintWriter out = new PrintWriter(
+                     new OutputStreamWriter(
+                             control.getOutputStream(), StandardCharsets.UTF_8), true)) {
+            if (!isAwarePeer(control)) {
+                HarpLog.i("B: FAIL_STAGE2_CONTROL non-link-local peer="
+                        + control.getRemoteSocketAddress());
+                return;
+            }
+
+            control.setSoTimeout(10000);
+            out.println(Stage2ControlProtocol.sessionLine(credentials));
+
+            String ack = in.readLine();
+            if (!Stage2ControlProtocol.OK.equals(ack)) {
+                HarpLog.i("B: FAIL_STAGE2_CONTROL ack=" + ack);
+                return;
+            }
+            HarpLog.i("B: Stage2 control OK");
+        } catch (Exception e) {
+            HarpLog.i("B: FAIL_STAGE2_CONTROL "
+                    + e.getClass().getSimpleName() + ": " + e.getMessage());
+            return;
+        }
+
+        try {
+            // Stage2 relay is persistent: remove the Stage0/1 accept timeout.
+            server.setSoTimeout(0);
+
+            Stage2RelayServer relay = new Stage2RelayServer(
+                    server,
+                    credentials,
+                    SocksPolicies.publicWeb(),
+                    host -> {
+                        java.net.InetAddress[] resolved = internet.getAllByName(host);
+                        HarpLog.i("B: Stage2 DNS host=" + host
+                                + " count=" + resolved.length);
+                        return resolved;
+                    },
+                    internet.getSocketFactory(),
+                    SocketPeerPolicies.awareLinkLocalOnly(),
+                    8,
+                    HarpLog::i);
+            stage2Relay = relay;
+            relay.start();
+            HarpLog.i("PASS_STAGE2_RELAY_READY port=" + relay.port());
+        } catch (Exception e) {
+            HarpLog.i("B: FAIL_STAGE2_RELAY "
+                    + e.getClass().getSimpleName() + ": " + e.getMessage());
         }
     }
 
@@ -389,6 +453,46 @@ final class HarpAwareController {
             HarpLog.i("PASS_STAGE1");
         } catch (Exception e) {
             HarpLog.i("FAIL_STAGE1 " + e.getClass().getSimpleName() + ": " + e.getMessage());
+            return;
+        }
+
+        final Stage2SessionCredentials credentials;
+        try (Socket control = network.getSocketFactory().createSocket();
+             BufferedReader in = new BufferedReader(
+                     new InputStreamReader(
+                             control.getInputStream(), StandardCharsets.UTF_8));
+             PrintWriter out = new PrintWriter(
+                     new OutputStreamWriter(
+                             control.getOutputStream(), StandardCharsets.UTF_8), true)) {
+            control.connect(dst, 8000);
+            control.setSoTimeout(10000);
+
+            String sessionLine = in.readLine();
+            credentials = Stage2ControlProtocol.parseSessionLine(sessionLine);
+            out.println(Stage2ControlProtocol.OK);
+            HarpLog.i("A: Stage2 credentials recibidas userLen="
+                    + credentials.username().length()
+                    + " passLen=" + credentials.password().length());
+        } catch (Exception e) {
+            HarpLog.i("FAIL_STAGE2_CONTROL "
+                    + e.getClass().getSimpleName() + ": " + e.getMessage());
+            return;
+        }
+
+        long t2 = SystemClock.elapsedRealtime();
+        try (Socket s = network.getSocketFactory().createSocket()) {
+            s.connect(dst, 8000);
+            String status = Stage1InternetProbe.run(
+                    s,
+                    credentials.username(),
+                    credentials.password());
+            HarpLog.i("A: stage2_relay_elapsed_ms="
+                    + (SystemClock.elapsedRealtime() - t2)
+                    + " status=" + status);
+            HarpLog.i("PASS_STAGE2_RELAY");
+        } catch (Exception e) {
+            HarpLog.i("FAIL_STAGE2_RELAY "
+                    + e.getClass().getSimpleName() + ": " + e.getMessage());
         }
     }
 
@@ -401,7 +505,13 @@ final class HarpAwareController {
         if (closed) return;
         closed = true;
         try { if (netCb != null) cm.unregisterNetworkCallback(netCb); } catch (Exception ignored) {}
-        try { if (server != null) server.close(); } catch (Exception ignored) {}
+        try {
+            if (stage2Relay != null) {
+                stage2Relay.close();
+            } else if (server != null) {
+                server.close();
+            }
+        } catch (Exception ignored) {}
         try { if (pub != null) pub.close(); } catch (Exception ignored) {}
         try { if (sub != null) sub.close(); } catch (Exception ignored) {}
         try { if (awareSession != null) awareSession.close(); } catch (Exception ignored) {}
