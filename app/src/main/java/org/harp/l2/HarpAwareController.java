@@ -58,6 +58,7 @@ final class HarpAwareController {
     private ConnectivityManager.NetworkCallback netCb;
     private ServerSocket server;
     private Stage2RelayServer stage2Relay;
+    private volatile Network clientAwareNetwork;
     private volatile Stage2VpnSession vpnSession;
     private volatile boolean closed;
     private long discoverStarted;
@@ -399,12 +400,16 @@ final class HarpAwareController {
                 }
 
                 @Override public void onUnavailable() {
+                    clientAwareNetwork = null;
                     vpnSession = null;
                     stopStage2VpnAfterTransportLoss();
                     HarpLog.i("A: NDP_TIMEOUT; Stage2 VPN stopped");
                 }
 
                 @Override public void onLost(Network n) {
+                    if (n.equals(clientAwareNetwork)) {
+                        clientAwareNetwork = null;
+                    }
                     vpnSession = null;
                     stopStage2VpnAfterTransportLoss();
                     HarpLog.i("A: NDP lost; Stage2 VPN stopped and session invalidated");
@@ -425,6 +430,7 @@ final class HarpAwareController {
         if (!started.compareAndSet(false, true)) return;
 
         InetSocketAddress dst = new InetSocketAddress(info.getPeerIpv6Addr(), info.getPort());
+        clientAwareNetwork = network;
         HarpLog.i("A: peer=" + dst + " advertisedPort=" + info.getPort());
         io.execute(() -> runTests(network, dst));
     }
@@ -498,6 +504,13 @@ final class HarpAwareController {
             HarpLog.i("A: stage2_relay_elapsed_ms="
                     + (SystemClock.elapsedRealtime() - t2)
                     + " status=" + status);
+
+            if (closed || !network.equals(clientAwareNetwork)) {
+                HarpLog.i("A: Stage2 proof completed after NDP invalidation; "
+                        + "VPN handoff discarded");
+                return;
+            }
+
             vpnSession = new Stage2VpnSession(
                     network,
                     dst,
@@ -550,6 +563,7 @@ final class HarpAwareController {
     void close() {
         if (closed) return;
         closed = true;
+        clientAwareNetwork = null;
         vpnSession = null;
         try { if (netCb != null) cm.unregisterNetworkCallback(netCb); } catch (Exception ignored) {}
         try {
