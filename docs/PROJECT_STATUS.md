@@ -328,3 +328,39 @@ local APK exists
 ```
 
 Until the local APK exists, continue research/source hardening and the virtual 5G branch without consuming GitHub Actions.
+
+
+## 14. Stage-2A lifecycle hardening — 2026-10-07
+
+Static source review found and corrected a transport-loss lifecycle defect.
+
+Before the correction:
+
+```
+A NDP lost
+  -> vpnSession = null
+  -> already-running HarpVpnService could remain active
+  -> TUN could continue capturing traffic with no valid relay path
+```
+
+Current behavior after commit `9a709cf92e4f0b6cc9753e749814ce56cd983f62`:
+
+```
+A NDP lost/unavailable
+  -> invalidate Stage2VpnSession
+  -> stop HarpVpnService
+  -> shutdown HEV / bridge / TUN
+
+B NDP lost/unavailable
+  -> close Stage2 relay/listener
+```
+
+This makes transport failure fail-closed rather than leaving a stale VPN/relay.
+
+HEV configuration was also checked against current upstream documentation:
+
+- `mapdns`, `tcp-read-write-timeout` and the Android AAR JNI contract match upstream;
+- `udp: 'tcp'` is a HEV UDP-over-TCP extension, while HARP's current `MiniSocks5` supports only SOCKS5 CONNECT;
+- therefore Stage-2A's PASS remains TCP/HTTPS only; UDP/QUIC is explicitly deferred to Stage-2B.
+
+No Android build or device claim is added by this review.
