@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-07  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `c34bd3feef8001a5c341ea530650ebf857a108d8`
+**Baseline commit reviewed through:** `f3e2e4707f58701c6670fa4ef1d609e6289fcc7d`
 
 ## 1. Product objective
 
@@ -925,5 +925,49 @@ Full-SIB1 test static dependency audit:
 - timer values used by `0004c` were checked against the exact `get_NR_UE_TimersAndConstants_*` switch tables and are valid.
 
 No build-dependent PASS marker is claimed yet.
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 25. AMF runtime SNN evidence marker — 2026-10-08
+
+AMF patch audit confirmed:
+
+- `amf_cfg` is `std::unique_ptr<oai::config::amf_config>`;
+- public config fields such as `default_dnn` are already consumed directly through `amf_cfg->...`;
+- therefore the staged public `std::optional<uint64_t> snpn_nid` is accessible from both SNN construction sites in `amf_n1.cpp`;
+- OAI AMF logging uses printf-style format strings, so the existing `%011llX` diagnostic format is compatible.
+
+Commit `1a1303d1d703426efd7504491f1dbdcf66ac0408` adds runtime evidence at both AMF SNN construction sites:
+
+```
+HARP_SNPN_AMF_SNN 5G:mnc099.mcc999.3gppnetwork.org:10000000001
+```
+
+Expected future RFsim correlation:
+
+```
+nrUE:
+PASS_V5G_SNPN_SELECT mcc=999 mnc=99 nid=10000000001
+
+nrUE KDF:
+SNN=5G:mnc099.mcc999.3gppnetwork.org:10000000001
+
+AMF:
+HARP_SNPN_AMF_SNN 5G:mnc099.mcc999.3gppnetwork.org:10000000001
+```
+
+Only after those identities match should the positive authentication gate be evaluated.
+
+The negative gate remains mandatory:
+
+```
+UE  NID = 10000000001
+AMF NID = 10000000002
+-> authentication must fail
+-> PASS_V5G_SNPN_KDF_NEGATIVE
+```
+
+No authentication PASS marker is claimed yet.
 No GitHub Actions were used.
 No phone installation is required yet.
