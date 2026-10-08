@@ -115,6 +115,11 @@ diff --git a/src/amf-app/amf_n1.cpp b/src/amf-app/amf_n1.cpp
 +            nas_data_ind.mnc, nas_data_ind.mcc, amf_cfg->snpn_nid.value())
 +      : amf_conv::get_serving_network_name(
 +            nas_data_ind.mnc, nas_data_ind.mcc);
++  if (amf_cfg->snpn_nid.has_value()) {
++    Logger::amf_n1().info(
++        "HARP_SNPN_AMF_SNN %s",
++        snn.c_str());
++  }
 @@
 -        std::string snn =
 -            amf_conv::get_serving_network_name(plmn.mnc, plmn.mcc);
@@ -122,6 +127,11 @@ diff --git a/src/amf-app/amf_n1.cpp b/src/amf-app/amf_n1.cpp
 +            ? amf_conv::get_serving_network_name(
 +                  plmn.mnc, plmn.mcc, amf_cfg->snpn_nid.value())
 +            : amf_conv::get_serving_network_name(plmn.mnc, plmn.mcc);
++        if (amf_cfg->snpn_nid.has_value()) {
++          Logger::amf_n1().info(
++              "HARP_SNPN_AMF_SNN %s",
++              snn.c_str());
++        }
 
 diff --git a/etc/config.yaml b/etc/config.yaml
 --- a/etc/config.yaml
