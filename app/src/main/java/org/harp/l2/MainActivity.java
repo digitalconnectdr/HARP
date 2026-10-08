@@ -21,7 +21,7 @@ public final class MainActivity extends Activity implements HarpLog.Listener {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        controller = new HarpAwareController(this);
+        controller = HarpRuntime.controller(this);
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -107,8 +107,7 @@ public final class MainActivity extends Activity implements HarpLog.Listener {
     }
 
     private void resetControllerSilently() {
-        if (controller != null) controller.close();
-        controller = new HarpAwareController(this);
+        controller = HarpRuntime.reset(this);
     }
 
     private void copyLog() {
@@ -119,7 +118,8 @@ public final class MainActivity extends Activity implements HarpLog.Listener {
 
     @Override protected void onDestroy() {
         HarpLog.removeListener(this);
-        if (controller != null) controller.close();
+        // The process-scoped HarpRuntime owns the Aware/NDP session.
+        // Activity recreation or switching to Chrome must not tear it down.
         super.onDestroy();
     }
 
