@@ -467,3 +467,116 @@ After these gates:
 8. ProSe.
 
 Do not collapse these into the first patch.
+
+
+## 18. Configuration placement decision
+
+Do **not** add `nid` to OAI's existing `plmn_list`.
+
+Current `GNBPLMNPARAMS_DESC` is reused by multiple subsystems and represents only:
+
+```
+mcc
+mnc
+mnc_length
+```
+
+Adding NID there would make ordinary PLMN consumers see an SNPN-specific parameter before E1AP/F1AP/NGAP paths are ready.
+
+Preferred HARP laboratory configuration is a separate gNB-level block:
+
+```
+snpn = {
+  enabled = "yes";
+  nid = "10000000001";
+};
+```
+
+Suggested parameter names:
+
+```c
+#define GNB_CONFIG_STRING_SNPN_CONFIG "snpn"
+#define GNB_CONFIG_STRING_SNPN_ENABLED "enabled"
+#define GNB_CONFIG_STRING_SNPN_NID "nid"
+```
+
+The parser should produce one optional `nr_snpn_config_t` owned by the gNB/RRC configuration and copied into the per-cell MAC/RRC configuration needed for SIB1 generation.
+
+When the block is absent or `enabled = "no"`, the upstream PLMN baseline must remain byte-for-byte behaviorally equivalent.
+
+## 19. NID helper gate
+
+HARP now carries a standalone reference implementation under:
+
+```
+tools/oai_snpn/nid44.h
+tools/oai_snpn/nid44.c
+tools/oai_snpn/nid44_selftest.c
+tools/oai_snpn/run_nid44_selftest.sh
+```
+
+The implementation has been validated with a local C11 compile using `-Wall -Wextra -Werror`.
+
+Current pass marker:
+
+```
+PASS_NID44_VECTORS
+```
+
+Vectors:
+
+```
+0x00000000000 -> 00 00 00 00 00 00
+0x00000000001 -> 00 00 00 00 00 10
+0x10000000001 -> 10 00 00 00 00 10
+0xFFFFFFFFFFF -> FF FF FF FF FF F0
+```
+
+Negative tests:
+
+- 45-bit overflow rejected;
+- non-zero padding nibble rejected.
+
+Before Patch 2 modifies SIB1, this test must remain green.
+
+## 20. First SIB1 test should not require RFsim
+
+OAI currently has no direct unit test for `get_SIB1_NR()`.
+
+HARP should add a deterministic encode/decode test before using RFsim:
+
+```
+construct SCC + PLMN + TAC + cell ID + SNPN config
+  -> get_SIB1_NR()
+  -> encode_SIB_NR()
+  -> uper_decode BCCH-DL-SCH/SIB1
+  -> inspect npn-IdentityInfoList-r16
+  -> decode NID-r16
+  -> assert exact PLMN+NID
+```
+
+Suggested pass marker:
+
+```
+PASS_V5G_SNPN_SIB1_CODEC
+```
+
+Required cases:
+
+1. SNPN disabled -> no NPN list.
+2. lab NID -> exact 44-bit round trip.
+3. max NID -> exact round trip.
+4. overflow -> rejected before ASN.1 generation.
+5. ordinary PLMN fields remain unchanged.
+
+Updated gate order:
+
+```
+PASS_NID44_VECTORS
+        |
+PASS_V5G_SNPN_SIB1_CODEC
+        |
+PASS_V5G_SNPN_BROADCAST
+        |
+PASS_V5G_SNPN_SELECT
+```
