@@ -240,3 +240,54 @@ Queda para Stage-2B:
 - background/autowake robusto;
 - rotación temporal/TTL explícita de credenciales;
 - recuperación automática de NDP/upstream.
+
+
+## Pérdida del transporte Aware
+
+El VPN no puede sobrevivir de forma válida a la pérdida del NDP porque:
+
+- el `Network` Aware de la sesión deja de ser un transporte utilizable;
+- la dirección IPv6 link-local del relay deja de ser alcanzable;
+- las credenciales Stage-2 pertenecen a esa sesión.
+
+Por tanto, la regla de fail-closed es:
+
+```
+A: NDP onLost/onUnavailable
+  -> invalidar Stage2VpnSession
+  -> detener HarpVpnService
+  -> HEV stop
+  -> bridge close
+  -> TUN close
+```
+
+En B:
+
+```
+B: NDP onLost/onUnavailable
+  -> cerrar Stage2RelayServer/listener
+```
+
+No se intenta restaurar silenciosamente el VPN. Una nueva sesión requiere repetir el preflight.
+
+## Límite UDP de Stage-2A
+
+`MiniSocks5` implementa únicamente SOCKS5 `CONNECT`.
+
+La opción HEV:
+
+```yaml
+socks5:
+  udp: 'tcp'
+```
+
+es una extensión UDP-over-TCP que el upstream HEV documenta para un servidor compatible con esa extensión. El relay Java actual de HARP no la implementa.
+
+Por eso Stage-2A permanece deliberadamente **TCP-first**:
+
+- `mapdns` permite traducir DNS del TUN a nombres usados en SOCKS CONNECT;
+- HTTPS/TCP es el gate;
+- QUIC/HTTP3/UDP no forman parte del PASS;
+- un intento UDP puede fallar y la aplicación deberá caer a TCP para que este PoC funcione.
+
+No afirmar soporte UDP hasta Stage-2B o hasta sustituir/extender el relay B con soporte compatible.
