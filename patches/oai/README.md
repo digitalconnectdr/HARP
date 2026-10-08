@@ -7,7 +7,18 @@ openairinterface/openairinterface5g
 commit f8f769592a7030be88ede4bb5ca66fa1ca6a80e0
 ```
 
-They are research patches stored in HARP so the work does not depend on GitHub Actions.
+They are research **context blueprints** stored in HARP so the work does not depend on GitHub Actions.
+
+Important: these files intentionally use context-only `@@` sections while the research branch is still evolving. They are not standard unified diffs for direct `git apply`.
+
+Use:
+
+```bash
+tools/oai_snpn/apply_oai_blueprints.sh /path/to/openairinterface5g --check
+tools/oai_snpn/apply_oai_blueprints.sh /path/to/openairinterface5g
+```
+
+The strict applicator requires every old context block to match exactly once and then runs `git diff --check`. After application, `git diff` is the authoritative standard diff.
 
 ## Order
 
@@ -19,6 +30,7 @@ They are research patches stored in HARP so the work does not depend on GitHub A
 0003a-gnb-snpn-config-plumbing.patch
 0003b-gnb-snpn-sib1-encoding.patch
 0003c-snpn-npn-codec-test.patch
+0004-nr-ue-snpn-selection.patch
 ```
 
 ### Patch 0001
@@ -138,6 +150,26 @@ PASS_V5G_SNPN_NPN_CODEC
 PASS_V5G_SNPN_SIB1_CODEC
 ```
 
+### Patch 0004
+
+Purpose:
+
+- add optional `uiccN.snpn_nid` as the nrUE lab target identity;
+- derive expected home MCC/MNC from the UICC IMSI and `nmc_size`;
+- inspect SIB1 `npn-IdentityInfoList-r16`;
+- require exact PLMN + 44-bit NID match;
+- only then set `serving_network.has_nid=true`;
+- return before SIB1 validity / Random Access on mismatch.
+
+Runtime evidence:
+
+```
+HARP_SNPN_SEEN ...
+PASS_V5G_SNPN_SELECT ...
+```
+
+The marker is not considered validated until a real OAI build/RFsim run emits it.
+
 ## Validation policy
 
 These patch files are source-staged but have not yet been compiled against a local OAI checkout in the current environment.
@@ -146,13 +178,12 @@ Required validation after an OAI checkout/build environment exists:
 
 ```
 git checkout f8f769592a7030be88ede4bb5ca66fa1ca6a80e0
-git apply --check < 0001...
-git apply < 0001...
+tools/oai_snpn/apply_oai_blueprints.sh <checkout> --check
+tools/oai_snpn/apply_oai_blueprints.sh <checkout>
+git diff --check
 build/tests
 baseline KDF comparison
-git apply --check < 0002...
-git apply < 0002...
-SNN vectors
+SNPN codec/selection tests
 ```
 
 Do not claim either OAI gate from the existence of these patch files alone.
@@ -162,8 +193,7 @@ Do not claim either OAI gate from the existence of these patch files alone.
 Still intentionally deferred:
 
 - full SIB1 codec fixture around `get_SIB1_NR()`;
-- nrUE `npn-IdentityInfoList-r16` decode;
-- storing selected NID into `serving_network`;
+- production-grade nrUE NID provisioning beyond the lab UICC field;
 - AMF SNPN SNN;
 - KDF positive/negative lab;
 - NGAP/F1AP NID propagation.
