@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-07  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `2aa6cc52cfa76e7b63916d004e8087f05e78c2f8`
+**Baseline commit reviewed through:** `c34bd3feef8001a5c341ea530650ebf857a108d8`
 
 ## 1. Product objective
 
@@ -862,5 +862,68 @@ PASS_V5G_SNPN_SELECT
 
 No build/RFsim marker above is claimed yet.
 
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 24. ASN.1 extension hierarchy verified + layered codec gates — 2026-10-08
+
+Exact OAI NR RRC grammar recovery:
+
+- GitHub Contents API returned the large `nr-rrc-17.3.0.asn1` file as empty, but fetching its Git blob by SHA recovered the full ~1.2 MB grammar;
+- the pinned OAI grammar confirms:
+  `CellAccessRelatedInfo -> npn-IdentityInfoList-r16 -> NPN-IdentityInfo-r16 -> NPN-Identity-r16 -> snpn-r16 -> PLMN + nid-List-r16`;
+- `NID-r16 ::= BIT STRING (SIZE(44))`.
+
+Generated-layout verification:
+
+- public OAI/asn1c generated artifacts confirm:
+  - `NR_NPN_Identity_r16_PR_snpn_r16`;
+  - `choice.snpn_r16` is a pointer;
+  - `npn_IdentityInfoList_r16` resides under `CellAccessRelatedInfo.ext1`;
+  - `cellReservedForOperatorUse-r16` exposes the expected `notReserved` enum;
+- an independent Rel-17 generated artifact confirms the hierarchy remains:
+  - `ext1 -> npn_IdentityInfoList_r16`;
+  - `ext2 -> snpn_AccessInfoList_r17`.
+
+gNB SIB1 staging:
+
+- `bfee36f05f87aabb90b9e108c489ec0158ab119e` + `d32c5f7b7b6b44868c28ae8829c2146c0f004051`: `0003a-gnb-snpn-config-plumbing.patch`;
+- `16baac2d36a0e571e74ab71b5db392e837d9dad6` + `bd0db7415c9c46c0b683e327e3eabad44c8115b6`: `0003b-gnb-snpn-sib1-encoding.patch`, corrected to the verified generated extension/CHOICE layout.
+
+Layered ASN.1 gates:
+
+```
+0003c  NPN-IdentityInfoList-r16 codec
+       -> PASS_V5G_SNPN_NPN_CODEC
+
+0003d  CellAccessRelatedInfo ext1 codec
+       -> PASS_V5G_SNPN_CELL_ACCESS_CODEC
+
+0004c  full BCCH-DL-SCH/SIB1 round-trip
+       -> PASS_V5G_SNPN_SIB1_CODEC
+```
+
+Repository cleanup:
+
+- temporary duplicate name `0003c-snpn-cell-access-codec-test.patch` was renamed to `0003d-snpn-cell-access-codec-test.patch`;
+- `913d34481fecb29169f42a9183fadbc0090c14c3`: ordered applicator updated;
+- `bb4c7a55692936a43c9e637376879548c7defeb5`: patch README updated with the new gate;
+- `c34bd3feef8001a5c341ea530650ebf857a108d8`: obsolete note saying full-SIB1 testing was deferred removed.
+
+nrUE selector hardening:
+
+- existing design correctly binds the lab target NID to `uiccN.snpn_nid`, alongside IMSI/`nmc_size`, rather than a process-global CLI flag;
+- OAI source confirms `nr_ue_nas_t` owns `uicc_t *uicc` and the UICC supplies IMSI/security identity used by NAS;
+- `7e876db70d3e3c959396ee8e1bc3464a633ca0ad`: staged selector NID buffer validation hardened;
+- `88b6157db5c9e10ee5fe75eba11f5366b0109621`: shared production decoder now rejects null NID buffers and its unit test exercises malformed padding and missing-buffer negatives.
+
+Full-SIB1 test static dependency audit:
+
+- `tests/nrdlbench` already uses the same OAI link group and framework stubs adopted by `0004c`;
+- `prepare_scc()`, `fill_scc_sim()` and `fix_scc()` are declared in `nr_unitary_defs.h` and already used by `nr_dlbench`;
+- timer values used by `0004c` were checked against the exact `get_NR_UE_TimersAndConstants_*` switch tables and are valid.
+
+No build-dependent PASS marker is claimed yet.
 No GitHub Actions were used.
 No phone installation is required yet.
