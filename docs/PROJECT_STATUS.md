@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-07  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `c384a5460f58abc244cd7cc07bc0093ed4a45703`
+**Baseline commit reviewed through:** `2aa6cc52cfa76e7b63916d004e8087f05e78c2f8`
 
 ## 1. Product objective
 
@@ -790,6 +790,77 @@ PASS_V5G_SNPN_KDF_LAB
         |
 PASS_V5G_SNPN_KDF_NEGATIVE
 ```
+
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 23. Deterministic blueprint application + nrUE SNPN selection/SIB1 gates — 2026-10-08
+
+Context-blueprint execution:
+
+- `8e17a59755f284d179c41c39b124f23db2fdc21a`: added strict `tools/apply_context_blueprints.py`;
+- `d7002371f18c09b72fce0262fe4d9b07f0806fdf`: ordered OAI wrapper;
+- `b34711e5e2f11afd7b19a714dfb014751f78b6cc`: ordered AMF wrapper;
+- every hunk must match exactly once; ambiguous or missing context fails closed;
+- after writing, the tool runs `git diff --check`;
+- context-blueprint semantics are now documented explicitly; the research `*.patch` files are not claimed to be direct `git apply` unified diffs.
+
+Static anchor validation against pinned sources:
+
+- OAI RAN blueprints through `0003c`: 48 sequential hunks matched exactly once;
+- `0004`: 7/7 hunks matched on its dependency-equivalent state;
+- `0004b`: 10/10 hunks matched after `0001 + 0003c + 0004`;
+- `0004c`: 4/4 hunks matched on the accumulated gNB/RRC state;
+- AMF blueprints: 17/17 hunks across six files matched exactly once.
+- detailed record: `docs/OAI_CONTEXT_BLUEPRINT_VALIDATION_2026-10-08.md`, commit `2db8dd54fc81bc3181995c2d2306d0516791a113`.
+
+nrUE selection:
+
+- `1c681c2d352cd05106ba3c52fa5f1b3bcdb58075` + `7f2cd373259a9a599803b0192103616f8baa6467`: staged `0004-nr-ue-snpn-selection.patch`;
+- software UICC gains optional lab `snpn_nid`;
+- expected MCC/MNC is derived from UICC IMSI + `nmc_size`;
+- SIB1 must contain an exact SNPN PLMN+NID match;
+- mismatch returns before SIB1 validity / Random Access is published;
+- runtime marker remains `PASS_V5G_SNPN_SELECT`, not yet claimed.
+
+Shared production selector:
+
+- `1d1535a685aa933b68f6d28e8431664068e9f057` + `8352a729014b3ef1dc855aaa607f25b9e60e6b61`: staged `0004b-nr-ue-snpn-selection-unit-test.patch`;
+- ASN.1-specific NID decode and PLMN+NID search move to `asn1_msg.c/.h`;
+- the same production lookup becomes testable through existing `test_asn1_msg`;
+- unit cases: exact match, NID mismatch, PLMN mismatch;
+- staged marker: `PASS_V5G_SNPN_SELECT_UNIT`.
+
+Full SIB1 codec gate:
+
+- `fad2ced41b95ccf7258a5224f34a4b115690e71a`: staged `0004c-snpn-full-sib1-codec-test.patch`;
+- reuses OAI simulator fixture path:
+  `prepare_scc -> fill_scc_sim -> fix_scc`;
+- uses valid timer values instead of zero-initialized invalid defaults;
+- calls real `get_SIB1_NR()`;
+- encodes with `encode_SIB_NR()`;
+- UPER-decodes complete BCCH-DL-SCH/SIB1;
+- verifies exact HARP PLMN+NID using the shared selector;
+- repeats with SNPN disabled and requires the NPN identity list to be absent;
+- staged marker: `PASS_V5G_SNPN_SIB1_CODEC`;
+- the current design links `test_asn1_msg` to `L2_NR`; context is valid, but a real CMake/link pass is still required to determine whether a smaller dedicated target is preferable.
+
+Current pre-RFsim gate order:
+
+```
+PASS_V5G_SNPN_NPN_CODEC
+        |
+PASS_V5G_SNPN_SELECT_UNIT
+        |
+PASS_V5G_SNPN_SIB1_CODEC
+        |
+PASS_V5G_SNPN_BROADCAST
+        |
+PASS_V5G_SNPN_SELECT
+```
+
+No build/RFsim marker above is claimed yet.
 
 No GitHub Actions were used.
 No phone installation is required yet.
