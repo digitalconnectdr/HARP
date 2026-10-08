@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-07  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `8810ab4144a95aad281e4f6cc665d0d75bb7b415`
+**Baseline commit reviewed through:** `e49297022ff63b3f2e97401cec0d10e444402974`
 
 ## 1. Product objective
 
@@ -411,3 +411,79 @@ Android Aware hardening also changed:
 - commit: `8810ab4144a95aad281e4f6cc665d0d75bb7b415`.
 
 No installation is required yet.
+
+
+## 17. SNPN executable blueprint + NID44 self-test — 2026-10-08
+
+The SNPN research branch now has an implementation-oriented blueprint rather than only an architecture plan:
+
+- `docs/OAI_SNPN_PATCH_BLUEPRINT_0_1.md`
+- initial commit: `cf5f4c5b239ef374a8b3fc1e2f09c8882d6b1a2e`
+- configuration/test refinement: `e49297022ff63b3f2e97401cec0d10e444402974`
+
+The blueprint is anchored to OAI `develop` commit:
+
+```
+f8f769592a7030be88ede4bb5ca66fa1ca6a80e0
+```
+
+Confirmed implementation anchors:
+
+```
+gNB SIB1 build:
+openair2/LAYER2/NR_MAC_gNB/nr_radio_config.c
+get_SIB1_NR()
+
+nrUE SIB1 decode:
+openair2/RRC/NR_UE/rrc_UE.c
+nr_rrc_process_sib1()
+```
+
+Standards structure used by the blueprint:
+
+```
+CellAccessRelatedInfo
+  -> npn-IdentityInfoList-r16
+  -> NPN-IdentityInfo-r16
+  -> NPN-Identity-r16 / snpn-r16
+  -> PLMN Identity + nid-List-r16
+  -> NID-r16 BIT STRING SIZE(44)
+```
+
+A reusable standalone NID helper was added:
+
+```
+tools/oai_snpn/nid44.h
+tools/oai_snpn/nid44.c
+tools/oai_snpn/nid44_selftest.c
+tools/oai_snpn/run_nid44_selftest.sh
+```
+
+The helper was compiled locally as C11 with `-Wall -Wextra -Werror` and produced:
+
+```
+PASS_NID44_VECTORS
+```
+
+Validated values include zero, one, the HARP lab NID `0x10000000001`, maximum 44-bit NID, overflow rejection and invalid padding rejection.
+
+New gate ladder:
+
+```
+PASS_NID44_VECTORS
+        |
+PASS_V5G_SNPN_SIB1_CODEC
+        |
+PASS_V5G_SNPN_BROADCAST
+        |
+PASS_V5G_SNPN_SELECT
+```
+
+Configuration decision:
+
+- do not extend OAI `plmn_id_t`;
+- do not add NID to the shared `plmn_list`;
+- add a separate optional gNB-level SNPN configuration block for the laboratory;
+- keep SNPN disabled behavior equivalent to upstream ordinary PLMN behavior.
+
+No phone installation is required for this work.
