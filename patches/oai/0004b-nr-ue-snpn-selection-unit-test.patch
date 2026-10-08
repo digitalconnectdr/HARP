@@ -1,0 +1,373 @@
+From HARP research branch
+Subject: [PATCH 4b] NR RRC: share and unit-test SNPN SIB1 selector
+
+Depends on:
+  0003c-snpn-npn-codec-test.patch
+  0004-nr-ue-snpn-selection.patch
+
+Upstream anchor:
+  openairinterface/openairinterface5g
+  f8f769592a7030be88ede4bb5ca66fa1ca6a80e0
+
+This moves the ASN.1-specific PLMN+NID lookup into asn1_msg.c, which is
+already part of nr_rrc and therefore directly testable by test_asn1_msg.
+
+Gate:
+  PASS_V5G_SNPN_SELECT_UNIT
+
+diff --git a/openair2/RRC/NR/MESSAGES/asn1_msg.h b/openair2/RRC/NR/MESSAGES/asn1_msg.h
+--- a/openair2/RRC/NR/MESSAGES/asn1_msg.h
++++ b/openair2/RRC/NR/MESSAGES/asn1_msg.h
+@@
+ #include "common/platform_constants.h"
++#include "common/5g_platform_types.h"
+@@
+ #include "NR_SIB4.h"
++#include "NR_SIB1.h"
++#include "NR_NID-r16.h"
+@@
+ byte_array_t do_SIB4_NR(NR_SIB4_t *sib4);
++
++bool nr_decode_nid44(const NR_NID_r16_t *nid_ie, uint64_t *nid);
++bool nr_sib1_find_snpn(
++    const NR_SIB1_t *sib1,
++    const plmn_id_t *target_plmn,
++    uint64_t target_nid,
++    plmn_id_t *selected_plmn,
++    uint64_t *selected_nid);
+
+diff --git a/openair2/RRC/NR/MESSAGES/asn1_msg.c b/openair2/RRC/NR/MESSAGES/asn1_msg.c
+--- a/openair2/RRC/NR/MESSAGES/asn1_msg.c
++++ b/openair2/RRC/NR/MESSAGES/asn1_msg.c
+@@
+ #include "NR_Paging-v1700-IEs.h"
++#include "NR_NPN-IdentityInfoList-r16.h"
++#include "NR_NPN-IdentityInfo-r16.h"
++#include "NR_NPN-Identity-r16.h"
++#include "NR_NID-r16.h"
+@@
++bool nr_decode_nid44(const NR_NID_r16_t *nid_ie, uint64_t *nid)
++{
++  if (!nid_ie || !nid || nid_ie->size != 6 || nid_ie->bits_unused != 4)
++    return false;
++  if ((nid_ie->buf[5] & 0x0f) != 0)
++    return false;
++
++  uint64_t shifted = 0;
++  for (int i = 0; i < 6; ++i)
++    shifted = (shifted << 8) | nid_ie->buf[i];
++  *nid = shifted >> 4;
++  return *nid <= 0xFFFFFFFFFFFULL;
++}
++
++static bool nr_plmn_from_asn1(
++    const NR_PLMN_Identity_t *plmn,
++    plmn_id_t *out)
++{
++  if (!plmn || !out || !plmn->mcc
++      || plmn->mcc->list.count != 3
++      || (plmn->mnc.list.count != 2 && plmn->mnc.list.count != 3))
++    return false;
++
++  out->mcc = (*plmn->mcc->list.array[0]) * 100
++      + (*plmn->mcc->list.array[1]) * 10
++      + (*plmn->mcc->list.array[2]);
++  out->mnc_digit_length = plmn->mnc.list.count;
++  out->mnc = 0;
++  for (int i = 0; i < plmn->mnc.list.count; ++i)
++    out->mnc = out->mnc * 10 + *plmn->mnc.list.array[i];
++  return true;
++}
++
++bool nr_sib1_find_snpn(
++    const NR_SIB1_t *sib1,
++    const plmn_id_t *target_plmn,
++    uint64_t target_nid,
++    plmn_id_t *selected_plmn,
++    uint64_t *selected_nid)
++{
++  if (!sib1 || !target_plmn || !selected_plmn || !selected_nid
++      || target_nid > 0xFFFFFFFFFFFULL)
++    return false;
++
++  if (!sib1->cellAccessRelatedInfo.ext1
++      || !sib1->cellAccessRelatedInfo.ext1->npn_IdentityInfoList_r16)
++    return false;
++
++  const NR_NPN_IdentityInfoList_r16_t *info_list =
++      sib1->cellAccessRelatedInfo.ext1->npn_IdentityInfoList_r16;
++  for (int i = 0; i < info_list->list.count; ++i) {
++    const NR_NPN_IdentityInfo_r16_t *info = info_list->list.array[i];
++    if (!info)
++      continue;
++    for (int j = 0; j < info->npn_IdentityList_r16.list.count; ++j) {
++      const NR_NPN_Identity_r16_t *identity =
++          info->npn_IdentityList_r16.list.array[j];
++      if (!identity
++          || identity->present != NR_NPN_Identity_r16_PR_snpn_r16
++          || !identity->choice.snpn_r16)
++        continue;
++
++      plmn_id_t seen_plmn = {0};
++      if (!nr_plmn_from_asn1(
++              &identity->choice.snpn_r16->plmn_Identity_r16,
++              &seen_plmn))
++        continue;
++      if (seen_plmn.mcc != target_plmn->mcc
++          || seen_plmn.mnc != target_plmn->mnc
++          || seen_plmn.mnc_digit_length != target_plmn->mnc_digit_length)
++        continue;
++
++      const struct NR_NPN_Identity_r16__snpn_r16__nid_List_r16 *nids =
++          &identity->choice.snpn_r16->nid_List_r16;
++      for (int k = 0; k < nids->list.count; ++k) {
++        uint64_t seen_nid = 0;
++        if (!nr_decode_nid44(nids->list.array[k], &seen_nid))
++          continue;
++        if (seen_nid != target_nid)
++          continue;
++
++        *selected_plmn = seen_plmn;
++        *selected_nid = seen_nid;
++        return true;
++      }
++    }
++  }
++  return false;
++}
++
+ int xer_sprint_NR(char *string, size_t string_size, struct asn_TYPE_descriptor_s *td, void *sptr)
+ {
+
+diff --git a/openair2/RRC/NR_UE/rrc_UE.c b/openair2/RRC/NR_UE/rrc_UE.c
+--- a/openair2/RRC/NR_UE/rrc_UE.c
++++ b/openair2/RRC/NR_UE/rrc_UE.c
+@@
+-static bool harp_decode_nid44(const NR_NID_r16_t *nid_ie, uint64_t *nid)
+-{
+-  if (!nid_ie || !nid || nid_ie->size != 6 || nid_ie->bits_unused != 4)
+-    return false;
+-  if ((nid_ie->buf[5] & 0x0f) != 0)
+-    return false;
+-
+-  uint64_t shifted = 0;
+-  for (int i = 0; i < 6; ++i)
+-    shifted = (shifted << 8) | nid_ie->buf[i];
+-  *nid = shifted >> 4;
+-  return *nid <= 0xFFFFFFFFFFFULL;
+-}
+-
+-static bool harp_plmn_from_asn1(
+-    const NR_PLMN_Identity_t *plmn,
+-    plmn_id_t *out)
+-{
+-  if (!plmn || !out || !plmn->mcc
+-      || plmn->mcc->list.count != 3
+-      || (plmn->mnc.list.count != 2 && plmn->mnc.list.count != 3))
+-    return false;
+-
+-  out->mcc = (*plmn->mcc->list.array[0]) * 100
+-      + (*plmn->mcc->list.array[1]) * 10
+-      + (*plmn->mcc->list.array[2]);
+-  out->mnc_digit_length = plmn->mnc.list.count;
+-  out->mnc = 0;
+-  for (int i = 0; i < plmn->mnc.list.count; ++i)
+-    out->mnc = out->mnc * 10 + *plmn->mnc.list.array[i];
+-  return true;
+-}
+-
+ static bool harp_home_plmn_from_uicc(
+@@
+ static bool harp_select_snpn(
+     const NR_SIB1_t *sib1,
+     const uicc_t *uicc,
+     nr_serving_network_id_t *selected)
+ {
+@@
+   plmn_id_t target_plmn = {0};
+   if (!harp_home_plmn_from_uicc(uicc, &target_plmn))
+     return false;
+-
+-  if (!sib1->cellAccessRelatedInfo.ext1
+-      || !sib1->cellAccessRelatedInfo.ext1->npn_IdentityInfoList_r16) {
+-    LOG_W(NR_RRC,
+-          "HARP_SNPN_REJECT reason=npn_list_missing expected=%011llX\n",
+-          (unsigned long long)target_nid);
+-    return false;
+-  }
+-
+-  const NR_NPN_IdentityInfoList_r16_t *info_list =
+-      sib1->cellAccessRelatedInfo.ext1->npn_IdentityInfoList_r16;
+-  for (int i = 0; i < info_list->list.count; ++i) {
+-    const NR_NPN_IdentityInfo_r16_t *info = info_list->list.array[i];
+-    for (int j = 0; j < info->npn_IdentityList_r16.list.count; ++j) {
+-      const NR_NPN_Identity_r16_t *identity =
+-          info->npn_IdentityList_r16.list.array[j];
+-      if (!identity
+-          || identity->present != NR_NPN_Identity_r16_PR_snpn_r16
+-          || !identity->choice.snpn_r16)
+-        continue;
+-
+-      plmn_id_t seen_plmn = {0};
+-      if (!harp_plmn_from_asn1(
+-              &identity->choice.snpn_r16->plmn_Identity_r16,
+-              &seen_plmn))
+-        continue;
+-
+-      if (seen_plmn.mcc != target_plmn.mcc
+-          || seen_plmn.mnc != target_plmn.mnc
+-          || seen_plmn.mnc_digit_length != target_plmn.mnc_digit_length)
+-        continue;
+-
+-      const struct NR_NPN_Identity_r16__snpn_r16__nid_List_r16 *nids =
+-          &identity->choice.snpn_r16->nid_List_r16;
+-      for (int k = 0; k < nids->list.count; ++k) {
+-        uint64_t seen_nid = 0;
+-        if (!harp_decode_nid44(nids->list.array[k], &seen_nid))
+-          continue;
+-        LOG_I(NR_RRC,
+-              "HARP_SNPN_SEEN mcc=%d mnc=%d nid=%011llX\n",
+-              seen_plmn.mcc,
+-              seen_plmn.mnc,
+-              (unsigned long long)seen_nid);
+-        if (seen_nid != target_nid)
+-          continue;
+-
+-        selected->plmn = seen_plmn;
+-        selected->has_nid = true;
+-        selected->nid = seen_nid;
+-        LOG_I(NR_RRC,
+-              "PASS_V5G_SNPN_SELECT mcc=%d mnc=%d nid=%011llX\n",
+-              selected->plmn.mcc,
+-              selected->plmn.mnc,
+-              (unsigned long long)selected->nid);
+-        return true;
+-      }
+-    }
+-  }
+-
+-  LOG_W(NR_RRC,
+-        "HARP_SNPN_REJECT reason=no_exact_match mcc=%d mnc=%d expected=%011llX\n",
+-        target_plmn.mcc,
+-        target_plmn.mnc,
+-        (unsigned long long)target_nid);
+-  return false;
++
++  plmn_id_t selected_plmn = {0};
++  uint64_t selected_nid = 0;
++  if (!nr_sib1_find_snpn(
++          sib1,
++          &target_plmn,
++          target_nid,
++          &selected_plmn,
++          &selected_nid)) {
++    LOG_W(NR_RRC,
++          "HARP_SNPN_REJECT reason=no_exact_match mcc=%d mnc=%d expected=%011llX\n",
++          target_plmn.mcc,
++          target_plmn.mnc,
++          (unsigned long long)target_nid);
++    return false;
++  }
++
++  LOG_I(NR_RRC,
++        "HARP_SNPN_SEEN mcc=%d mnc=%d nid=%011llX\n",
++        selected_plmn.mcc,
++        selected_plmn.mnc,
++        (unsigned long long)selected_nid);
++  selected->plmn = selected_plmn;
++  selected->has_nid = true;
++  selected->nid = selected_nid;
++  LOG_I(NR_RRC,
++        "PASS_V5G_SNPN_SELECT mcc=%d mnc=%d nid=%011llX\n",
++        selected->plmn.mcc,
++        selected->plmn.mnc,
++        (unsigned long long)selected->nid);
++  return true;
+ }
+
+diff --git a/openair2/RRC/NR/MESSAGES/tests/test_asn1_msg.cpp b/openair2/RRC/NR/MESSAGES/tests/test_asn1_msg.cpp
+--- a/openair2/RRC/NR/MESSAGES/tests/test_asn1_msg.cpp
++++ b/openair2/RRC/NR/MESSAGES/tests/test_asn1_msg.cpp
+@@
+ TEST(nr_asn1, harp_snpn_npn_codec)
+ {
+@@
+   ASN_STRUCT_FREE_CONTENTS_ONLY(asn_DEF_NR_NPN_IdentityInfoList_r16, &original);
+ }
++
++TEST(nr_asn1, harp_snpn_selection)
++{
++  NR_SIB1_t sib1 = {};
++  sib1.cellAccessRelatedInfo.ext1 =
++      (struct NR_CellAccessRelatedInfo__ext1 *)calloc_or_fail(
++          1, sizeof(*sib1.cellAccessRelatedInfo.ext1));
++  sib1.cellAccessRelatedInfo.ext1->npn_IdentityInfoList_r16 =
++      (NR_NPN_IdentityInfoList_r16_t *)calloc_or_fail(
++          1,
++          sizeof(*sib1.cellAccessRelatedInfo.ext1->npn_IdentityInfoList_r16));
++
++  auto *info = (NR_NPN_IdentityInfo_r16_t *)calloc_or_fail(1, sizeof(*info));
++  ASSERT_EQ(
++      ASN_SEQUENCE_ADD(
++          &sib1.cellAccessRelatedInfo.ext1->npn_IdentityInfoList_r16->list,
++          info),
++      0);
++
++  auto *identity = (NR_NPN_Identity_r16_t *)calloc_or_fail(1, sizeof(*identity));
++  ASSERT_EQ(ASN_SEQUENCE_ADD(&info->npn_IdentityList_r16.list, identity), 0);
++  identity->present = NR_NPN_Identity_r16_PR_snpn_r16;
++  identity->choice.snpn_r16 =
++      (struct NR_NPN_Identity_r16__snpn_r16 *)calloc_or_fail(
++          1, sizeof(*identity->choice.snpn_r16));
++  fill_test_plmn(&identity->choice.snpn_r16->plmn_Identity_r16, 999, 99);
++
++  auto *nid = (NR_NID_r16_t *)calloc_or_fail(1, sizeof(*nid));
++  const uint8_t nid_bytes[] = {0x10, 0x00, 0x00, 0x00, 0x00, 0x10};
++  fill_test_bit_string(nid, nid_bytes, sizeof(nid_bytes), 4);
++  ASSERT_EQ(
++      ASN_SEQUENCE_ADD(&identity->choice.snpn_r16->nid_List_r16.list, nid),
++      0);
++
++  const plmn_id_t target = {
++      .mcc = 999,
++      .mnc = 99,
++      .mnc_digit_length = 2,
++  };
++  plmn_id_t selected = {};
++  uint64_t selected_nid = 0;
++
++  ASSERT_TRUE(nr_sib1_find_snpn(
++      &sib1,
++      &target,
++      0x10000000001ULL,
++      &selected,
++      &selected_nid));
++  EXPECT_EQ(selected.mcc, 999);
++  EXPECT_EQ(selected.mnc, 99);
++  EXPECT_EQ(selected.mnc_digit_length, 2);
++  EXPECT_EQ(selected_nid, 0x10000000001ULL);
++
++  selected = {};
++  selected_nid = 0;
++  EXPECT_FALSE(nr_sib1_find_snpn(
++      &sib1,
++      &target,
++      0x10000000002ULL,
++      &selected,
++      &selected_nid));
++
++  const plmn_id_t wrong_plmn = {
++      .mcc = 998,
++      .mnc = 99,
++      .mnc_digit_length = 2,
++  };
++  EXPECT_FALSE(nr_sib1_find_snpn(
++      &sib1,
++      &wrong_plmn,
++      0x10000000001ULL,
++      &selected,
++      &selected_nid));
++
++  printf("PASS_V5G_SNPN_SELECT_UNIT\n");
++  ASN_STRUCT_FREE_CONTENTS_ONLY(asn_DEF_NR_SIB1, &sib1);
++}
