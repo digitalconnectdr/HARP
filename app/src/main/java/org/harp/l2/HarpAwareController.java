@@ -32,6 +32,9 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -62,6 +65,8 @@ final class HarpAwareController {
     private volatile Network relayUpstreamNetwork;
     private volatile int relayAwareInterfaceIndex;
     private volatile String relayAwareInterfaceName;
+    private volatile List<byte[]> relayAwareLocalIpv6 =
+            Collections.emptyList();
     private ServerSocket server;
     private Stage2RelayServer stage2Relay;
     private volatile Network clientAwareNetwork;
@@ -592,16 +597,29 @@ final class HarpAwareController {
         if (lp == null) return;
         String name = lp.getInterfaceName();
         if (name == null || name.isEmpty()) return;
+
+        List<byte[]> localIpv6 = new ArrayList<>();
+        for (android.net.LinkAddress linkAddress : lp.getLinkAddresses()) {
+            java.net.InetAddress address = linkAddress.getAddress();
+            if (address instanceof java.net.Inet6Address
+                    && address.isLinkLocalAddress()) {
+                localIpv6.add(address.getAddress().clone());
+            }
+        }
+        relayAwareLocalIpv6 = Collections.unmodifiableList(localIpv6);
+
         try {
             java.net.NetworkInterface nif = java.net.NetworkInterface.getByName(name);
             if (nif == null) {
-                HarpLog.i("B: Aware interface name=" + name + " index=unresolved");
+                HarpLog.i("B: Aware interface name=" + name
+                        + " index=unresolved localLinkLocal=" + localIpv6.size());
                 return;
             }
             relayAwareInterfaceName = name;
             relayAwareInterfaceIndex = nif.getIndex();
             HarpLog.i("B: Aware interface name=" + name
-                    + " index=" + relayAwareInterfaceIndex);
+                    + " index=" + relayAwareInterfaceIndex
+                    + " localLinkLocal=" + localIpv6.size());
         } catch (Exception e) {
             HarpLog.i("B: Aware interface resolve warning "
                     + e.getClass().getSimpleName() + ": " + e.getMessage());
@@ -660,6 +678,7 @@ final class HarpAwareController {
         unregisterRelayUpstreamWatch();
         relayAwareInterfaceIndex = 0;
         relayAwareInterfaceName = null;
+        relayAwareLocalIpv6 = Collections.emptyList();
         try {
             if (stage2Relay != null) {
                 stage2Relay.close();
@@ -679,15 +698,28 @@ final class HarpAwareController {
             return false;
         }
 
+        java.net.InetAddress local = socket.getLocalAddress();
+        List<byte[]> expectedLocalAddresses = relayAwareLocalIpv6;
+        if (!expectedLocalAddresses.isEmpty()) {
+            if (!(local instanceof java.net.Inet6Address)
+                    || !containsAddressBytes(expectedLocalAddresses, local.getAddress())) {
+                HarpLog.i("B: peer local-address mismatch awareIf="
+                        + relayAwareInterfaceName
+                        + " local=" + local
+                        + " expectedCount=" + expectedLocalAddresses.size());
+                return false;
+            }
+        }
+
         int expected = relayAwareInterfaceIndex;
         if (expected <= 0) {
-            HarpLog.i("B: peer scope check unavailable remote=" + remote
+            HarpLog.i("B: peer interface-index check unavailable remote=" + remote
+                    + " local=" + local
                     + " awareIf=" + relayAwareInterfaceName);
             return true;
         }
 
         int remoteScope = ((java.net.Inet6Address) remote).getScopeId();
-        java.net.InetAddress local = socket.getLocalAddress();
         int localScope = local instanceof java.net.Inet6Address
                 ? ((java.net.Inet6Address) local).getScopeId()
                 : 0;
@@ -702,11 +734,20 @@ final class HarpAwareController {
             return false;
         }
 
-        HarpLog.i("B: peer scope accepted expectedIf=" + relayAwareInterfaceName
+        HarpLog.i("B: peer Aware binding accepted expectedIf="
+                + relayAwareInterfaceName
                 + " expectedIndex=" + expected
+                + " localAddressMatched=" + !expectedLocalAddresses.isEmpty()
                 + " remoteScope=" + remoteScope
                 + " localScope=" + localScope);
         return true;
+    }
+
+    private static boolean containsAddressBytes(List<byte[]> expected, byte[] actual) {
+        for (byte[] candidate : expected) {
+            if (java.util.Arrays.equals(candidate, actual)) return true;
+        }
+        return false;
     }
 
     void close() {
@@ -716,6 +757,7 @@ final class HarpAwareController {
         vpnSession = null;
         relayAwareInterfaceIndex = 0;
         relayAwareInterfaceName = null;
+        relayAwareLocalIpv6 = Collections.emptyList();
         try { if (netCb != null) cm.unregisterNetworkCallback(netCb); } catch (Exception ignored) {}
         unregisterRelayUpstreamWatch();
         try {
