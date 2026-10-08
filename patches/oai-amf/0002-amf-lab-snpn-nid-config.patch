@@ -16,6 +16,10 @@ diff --git a/src/amf-app/amf_config.hpp b/src/amf-app/amf_config.hpp
 --- a/src/amf-app/amf_config.hpp
 +++ b/src/amf-app/amf_config.hpp
 @@
+ #include <nlohmann/json.hpp>
++#include <optional>
++
+@@
  constexpr auto AMF_CONFIG_DEFAULT_DNN             = "default_dnn";
  constexpr auto AMF_CONFIG_DEFAULT_DNN_LABEL       = "Default DNN";
 +constexpr auto AMF_CONFIG_SNPN_NID                = "snpn_nid";
@@ -37,6 +41,11 @@ diff --git a/src/amf-app/amf_config.hpp b/src/amf-app/amf_config.hpp
 diff --git a/src/amf-app/amf_config.cpp b/src/amf-app/amf_config.cpp
 --- a/src/amf-app/amf_config.cpp
 +++ b/src/amf-app/amf_config.cpp
+@@
+ #include <arpa/inet.h>
+ #include <netinet/in.h>
++#include <stdexcept>
++
 @@
    m_default_dnn =
        string_config_value(AMF_CONFIG_DEFAULT_DNN, AMF_CONFIG_DEFAULT_DNN_VALUE);
