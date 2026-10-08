@@ -33,7 +33,9 @@ Este tercer gate valida la base del relay persistente que después usará `VpnSe
 2. Abrir HARP en ambos.
 3. Conceder **Dispositivos Wi-Fi cercanos**.
 4. Mantener ambas apps visibles durante esta primera prueba.
-5. En B confirmar que Internet normal funciona antes de iniciar HARP.
+5. Apagar **Hotspot/tethering** y cualquier sesión **Wi-Fi Direct/P2P** en ambos teléfonos. En algunos dispositivos estas funciones compiten con Wi-Fi Aware y pueden hacer que `WifiAwareManager.isAvailable()` pase a false.
+6. En B confirmar que Internet normal funciona antes de iniciar HARP. B puede conservar su conexión Wi-Fi de infraestructura o datos móviles; la prueba sólo requiere que exista una `Network` separada con `INTERNET + VALIDATED`.
+7. Si HARP registra `Wi-Fi Aware no disponible`, no diagnosticar todavía Stage-0: primero confirmar Wi-Fi encendido y que no haya SoftAP/tethering/P2P activo.
 
 ## Ejecución
 
@@ -156,3 +158,15 @@ Chrome/apps en A
 ```
 
 La prueba final de Stage-2A exigirá que Chrome en A cargue HTTPS mientras A no tiene Internet propio.
+
+
+## Recuperación/fail-closed esperada
+
+Durante la prueba Stage-2A, si se apaga Wi-Fi/Aware, se pierde el NDP o se reinicia el rol HARP:
+
+- A debe invalidar la sesión Stage-2;
+- un VPN activo debe detenerse y dejar de capturar tráfico;
+- B debe cerrar el relay/listener asociado a ese NDP;
+- una prueba Stage-2 que termine tarde no debe volver a publicar una sesión VPN obsoleta.
+
+Después de una pérdida de transporte, repetir el preflight completo antes de activar de nuevo el VPN.
