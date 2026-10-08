@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-07  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `1a7f25f5bc91190cdde57fe9bc0a689be8f5b34e`
+**Baseline commit reviewed through:** `b63d61470d2777dc950a902c6bc704e4854f071d`
 
 ## 1. Product objective
 
@@ -513,6 +513,85 @@ nrUE authentication boundary:
 - therefore a decoded NID cannot influence 5G-AKA until the serving-network context becomes PLMN+optional NID;
 - new planned gates:
   `PASS_V5G_SNN_REFACTOR_BASELINE -> PASS_V5G_SNPN_SNN -> PASS_V5G_SNPN_KDF_LAB`.
+
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 19. Stronger Aware peer binding + canonical SNPN SNN — 2026-10-08
+
+Android hardening:
+
+- commit `4b3d8198dc9aae61dc021d4af1c324680da847b6`;
+- B now records the IPv6 link-local addresses assigned to the actual Wi-Fi Aware `LinkProperties`;
+- an accepted socket must use one of those local addresses when that information is available;
+- IPv6 scope/interface index remains a second validation layer;
+- this is stronger than the previous “remote peer is any IPv6 link-local address” policy while preserving a diagnostic fallback if Android does not expose enough interface metadata.
+
+SNPN SNN research:
+
+- TS 24.501 SNN format was verified for SNPN;
+- canonical SNPN SNN is the ordinary PLMN SNN followed by `:` and exactly 11 uppercase hexadecimal NID digits;
+- HARP lab SNN is:
+  `5G:mnc099.mcc999.3gppnetwork.org:10000000001`.
+
+Standalone reference code added:
+
+```
+tools/oai_snpn/snn.h
+tools/oai_snpn/snn.c
+tools/oai_snpn/snn_selftest.c
+tools/oai_snpn/run_snn_selftest.sh
+```
+
+Local C11 validation produced:
+
+```
+PASS_SNN_VECTORS
+```
+
+Validated cases include:
+
+- ordinary PLMN baseline;
+- HARP lab NID;
+- leading-zero NID formatting;
+- maximum 44-bit NID;
+- overflow rejection.
+
+New implementation document:
+
+- `docs/OAI_SNPN_SNN_KDF_REFACTOR_2026-10-08.md`
+- commit `b63d61470d2777dc950a902c6bc704e4854f071d`.
+
+Current OAI AMF source anchor:
+
+```
+openairinterface/oai-cn5g-amf
+develop
+5eedea557a3745b13ed9ec4bf29e6a28bd912574
+```
+
+The AMF current `get_serving_network_name(mnc, mcc)` is also PLMN-only, so `PASS_V5G_SNPN_KDF_LAB` must coordinate UE and AMF changes.
+
+Updated gate ladder:
+
+```
+PASS_NID44_VECTORS
+        |
+PASS_SNN_VECTORS
+        |
+PASS_V5G_SNPN_SIB1_CODEC
+        |
+PASS_V5G_SNPN_BROADCAST
+        |
+PASS_V5G_SNPN_SELECT
+        |
+PASS_V5G_SNN_REFACTOR_BASELINE
+        |
+PASS_V5G_SNPN_SNN
+        |
+PASS_V5G_SNPN_KDF_LAB
+```
 
 No GitHub Actions were used.
 No phone installation is required yet.
