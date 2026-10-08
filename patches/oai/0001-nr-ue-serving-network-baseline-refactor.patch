@@ -88,6 +88,7 @@ diff --git a/openair3/NAS/NR_UE/nr_nas_msg.c b/openair3/NAS/NR_UE/nr_nas_msg.c
 +                  const nr_serving_network_id_t *serving_network)
  {
 @@
+   S[0] = 0x6A;
 -  servingNetworkName(S + 1, plmn_id);
 +  servingNetworkName(S + 1, serving_network);
 @@
@@ -97,6 +98,7 @@ diff --git a/openair3/NAS/NR_UE/nr_nas_msg.c b/openair3/NAS/NR_UE/nr_nas_msg.c
 +                  const nr_serving_network_id_t *serving_network)
  {
 @@
+   S[0] = 0x6C; // FC
 -  servingNetworkName(S + 1, plmn_id);
 +  servingNetworkName(S + 1, serving_network);
 @@
