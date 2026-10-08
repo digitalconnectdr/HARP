@@ -1,5 +1,5 @@
 From HARP research branch
-Subject: [PATCH 4c] NR RRC tests: dedicated full SIB1 SNPN encode/decode gate
+Subject: [PATCH 4c] tests: dedicated full SIB1 SNPN encode/decode gate
 
 Depends on:
   0003a-gnb-snpn-config-plumbing.patch
@@ -13,10 +13,11 @@ Upstream anchor:
 Gate:
   PASS_V5G_SNPN_SIB1_CODEC
 
-This creates a dedicated test target so the existing lightweight
-test_asn1_msg target does not inherit L2_NR.
+The test is a standalone C executable under tests/nrdlbench. It reuses the
+same link group and framework stubs already proven by nr_dlbench, while
+keeping the lightweight RRC GTest target unchanged.
 
-The test uses the same SCC fixture path as OAI PHY simulations:
+It uses the same SCC fixture path as OAI PHY simulations:
   prepare_scc()
   fill_scc_sim()
   fix_scc()
@@ -29,69 +30,115 @@ Then:
 
 It also verifies that disabling SNPN leaves the NPN identity list absent.
 
-diff --git a/openair2/RRC/NR/MESSAGES/tests/CMakeLists.txt b/openair2/RRC/NR/MESSAGES/tests/CMakeLists.txt
---- a/openair2/RRC/NR/MESSAGES/tests/CMakeLists.txt
-+++ b/openair2/RRC/NR/MESSAGES/tests/CMakeLists.txt
+diff --git a/tests/nrdlbench/CMakeLists.txt b/tests/nrdlbench/CMakeLists.txt
+--- a/tests/nrdlbench/CMakeLists.txt
++++ b/tests/nrdlbench/CMakeLists.txt
 @@
- add_test(NAME test_asn1_msg
-     COMMAND ./test_asn1_msg)
+   add_test(NAME nr_dlbench_am_functional_test
+            COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/nr-dlbench-functional-test.sh $<TARGET_FILE:nr_dlbench> -A 50)
 +
-+add_executable(test_snpn_sib1_codec
-+  test_snpn_sib1_codec.cpp)
-+target_link_libraries(test_snpn_sib1_codec PRIVATE
-+  -Wl,--start-group
-+  L2_NR nr_rrc CONFIG_LIB ITTI SECURITY minimal_lib UTIL nr_common GTest::gtest
-+  -Wl,--end-group)
-+add_dependencies(tests test_snpn_sib1_codec)
-+add_test(NAME test_snpn_sib1_codec
-+    COMMAND ./test_snpn_sib1_codec)
++  add_executable(test_snpn_sib1_codec
++    test_snpn_sib1_codec.c)
++  target_link_libraries(test_snpn_sib1_codec PRIVATE
++    -Wl,--start-group
++    UTIL SIMU PHY_NR_COMMON PHY_NR SCHED_NR_LIB MAC_NR_COMMON CONFIG_LIB L2_NR nr_rrc
++    -Wl,--end-group
++    m pthread ${T_LIB} ITTI dl physim_common time_management_core
++    softmodem_common
++  )
++  target_link_libraries(test_snpn_sib1_codec PRIVATE
++    asn1_nr_rrc_hdrs asn1_lte_rrc_hdrs)
++  add_dependencies(tests test_snpn_sib1_codec)
++  add_test(NAME test_snpn_sib1_codec
++           COMMAND $<TARGET_FILE:test_snpn_sib1_codec>)
+ endif()
 
-diff --git a/openair2/RRC/NR/MESSAGES/tests/test_snpn_sib1_codec.cpp b/openair2/RRC/NR/MESSAGES/tests/test_snpn_sib1_codec.cpp
+diff --git a/tests/nrdlbench/test_snpn_sib1_codec.c b/tests/nrdlbench/test_snpn_sib1_codec.c
 new file mode 100644
 --- /dev/null
-+++ b/openair2/RRC/NR/MESSAGES/tests/test_snpn_sib1_codec.cpp
++++ b/tests/nrdlbench/test_snpn_sib1_codec.c
 @@
 +/*
 + * SPDX-License-Identifier: LicenseRef-CSSL-1.0
 + */
 +
-+#include <gtest/gtest.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
 +
-+#include <cstdint>
-+#include <cstdlib>
-+#include <cstdio>
-+
-+extern "C" {
++#include "common/config/config_load_configmodule.h"
 +#include "common/ran_context.h"
++#include "common/utils/LOG/log.h"
 +#include "common/utils/assertions.h"
++#include "executables/nr-uesoftmodem.h"
++#include "executables/softmodem-common.h"
++#include "e1ap_messages_types.h"
++#include "nfapi_nr_interface_scf.h"
++#include "openair1/PHY/defs_gNB.h"
++#include "openair1/SIMULATION/NR_PHY/nr_unitary_defs.h"
 +#include "openair2/LAYER2/NR_MAC_gNB/nr_radio_config.h"
 +#include "openair2/RRC/NR/MESSAGES/asn1_msg.h"
-+#include "NR_BCCH-DL-SCH-Message.h"
-+#include "NR_ServingCellConfigCommon.h"
-+#include "per_decoder.h"
-+}
++#include "thread-pool.h"
 +
-+extern "C" {
++/* Framework globals/stubs: same standalone pattern used by nr_dlbench. */
++PHY_VARS_gNB *gNB;
 +RAN_CONTEXT_t RC;
++int64_t uplink_frequency_offset[MAX_NUM_CCs][4];
++double cpuf;
++char *uecap_file;
++uint64_t downlink_frequency[MAX_NUM_CCs][4];
++THREAD_STRUCT thread_struct;
++nfapi_ue_release_request_body_t release_rntis;
++instance_t DUuniqInstance = 0;
++instance_t CUuniqInstance = 0;
++unsigned int NTN_UE_Koffset = 0;
++configmodule_interface_t *uniqCfg = NULL;
++void *PHY_vars_UE_g = NULL;
++
++void signal_rrc_msg(void) { abort(); }
++void signal_rrc_state_changed_to(void) { abort(); }
++void signal_ue_id(void) { abort(); }
++
++void e1_bearer_context_setup(const e1ap_bearer_setup_req_t *req)
++{
++  (void)req;
++  abort();
 +}
 +
-+extern "C" {
-+void prepare_scc(NR_ServingCellConfigCommon_t *scc);
-+void fill_scc_sim(
-+    NR_ServingCellConfigCommon_t *scc,
-+    uint64_t *ssb_bitmap,
-+    int N_RB_DL,
-+    int N_RB_UL,
-+    int mu_dl,
-+    int mu_ul);
-+void fix_scc(NR_ServingCellConfigCommon_t *scc, uint64_t ssbmap);
++void e1_bearer_context_modif(const e1ap_bearer_mod_req_t *req)
++{
++  (void)req;
++  abort();
++}
++
++struct e1ap_bearer_mod_confirm_s;
++void e1_bearer_context_mod_confirm(
++    const struct e1ap_bearer_mod_confirm_s *conf)
++{
++  (void)conf;
++  abort();
++}
++
++struct e1ap_bearer_release_cmd_s;
++void e1_bearer_release_cmd(
++    const struct e1ap_bearer_release_cmd_s *cmd)
++{
++  (void)cmd;
++  abort();
++}
++
++nrUE_params_t nrUE_params;
++nrUE_params_t *get_nrUE_params(void)
++{
++  return &nrUE_params;
 +}
 +
 +static nr_mac_config_t harp_sib1_test_config(
 +    bool snpn_enabled,
 +    uint64_t nid)
 +{
-+  nr_mac_config_t config = {};
++  nr_mac_config_t config = {0};
 +  config.timer_config.t300 = 1000;
 +  config.timer_config.t301 = 1000;
 +  config.timer_config.t310 = 1000;
@@ -109,101 +156,117 @@ new file mode 100644
 +    uint64_t nid)
 +{
 +  NR_ServingCellConfigCommon_t *scc =
-+      static_cast<NR_ServingCellConfigCommon_t *>(
-+          calloc_or_fail(1, sizeof(*scc)));
++      calloc_or_fail(1, sizeof(*scc));
 +  prepare_scc(scc);
 +  uint64_t ssb_bitmap = 1;
 +  fill_scc_sim(scc, &ssb_bitmap, 106, 106, 1, 1);
 +  fix_scc(scc, ssb_bitmap);
 +
-+  const plmn_id_t plmn = {
-+      .mcc = 999,
-+      .mnc = 99,
-+      .mnc_digit_length = 2,
-+  };
-+  const nr_mac_config_t config =
++  plmn_id_t plmn = {0};
++  plmn.mcc = 999;
++  plmn.mnc = 99;
++  plmn.mnc_digit_length = 2;
++
++  nr_mac_config_t config =
 +      harp_sib1_test_config(snpn_enabled, nid);
 +
 +  NR_BCCH_DL_SCH_Message_t *built =
 +      get_SIB1_NR(scc, &plmn, 0x12345, 1, &config);
-+  EXPECT_NE(built, nullptr);
-+  if (!built) {
-+    ASN_STRUCT_FREE(asn_DEF_NR_ServingCellConfigCommon, scc);
-+    return nullptr;
-+  }
++  AssertFatal(built != NULL, "get_SIB1_NR returned NULL\n");
 +
 +  uint8_t encoded[4096] = {0};
 +  const int encoded_len =
 +      encode_SIB_NR(built, encoded, sizeof(encoded));
-+  EXPECT_GT(encoded_len, 0);
-+  if (encoded_len <= 0) {
-+    free_SIB1_NR(built);
-+    ASN_STRUCT_FREE(asn_DEF_NR_ServingCellConfigCommon, scc);
-+    return nullptr;
-+  }
++  AssertFatal(encoded_len > 0, "SIB1 encoding failed\n");
 +
-+  NR_BCCH_DL_SCH_Message_t *decoded = nullptr;
++  NR_BCCH_DL_SCH_Message_t *decoded = NULL;
 +  const asn_dec_rval_t dec = uper_decode(
-+      nullptr,
++      NULL,
 +      &asn_DEF_NR_BCCH_DL_SCH_Message,
-+      reinterpret_cast<void **>(&decoded),
++      (void **)&decoded,
 +      encoded,
 +      encoded_len,
 +      0,
 +      0);
-+  EXPECT_EQ(dec.code, RC_OK);
-+  EXPECT_NE(decoded, nullptr);
++  AssertFatal(
++      dec.code == RC_OK && decoded != NULL,
++      "SIB1 UPER decode failed\n");
 +
 +  free_SIB1_NR(built);
 +  ASN_STRUCT_FREE(asn_DEF_NR_ServingCellConfigCommon, scc);
 +  return decoded;
 +}
 +
-+TEST(harp_snpn, full_sib1_codec)
++static void assert_harp_snpn_present(
++    const NR_BCCH_DL_SCH_Message_t *decoded)
 +{
-+  NR_BCCH_DL_SCH_Message_t *decoded =
-+      harp_build_and_decode_sib1(true, 0x10000000001ULL);
-+  ASSERT_NE(decoded, nullptr);
-+  ASSERT_EQ(decoded->message.present, NR_BCCH_DL_SCH_MessageType_PR_c1);
-+  ASSERT_NE(decoded->message.choice.c1, nullptr);
-+  ASSERT_EQ(
-+      decoded->message.choice.c1->present,
-+      NR_BCCH_DL_SCH_MessageType__c1_PR_systemInformationBlockType1);
++  AssertFatal(
++      decoded->message.present == NR_BCCH_DL_SCH_MessageType_PR_c1,
++      "Unexpected BCCH-DL-SCH message type\n");
++  AssertFatal(
++      decoded->message.choice.c1 != NULL
++          && decoded->message.choice.c1->present
++              == NR_BCCH_DL_SCH_MessageType__c1_PR_systemInformationBlockType1,
++      "Decoded message is not SIB1\n");
 +
 +  const NR_SIB1_t *sib1 =
 +      decoded->message.choice.c1->choice.systemInformationBlockType1;
-+  ASSERT_NE(sib1, nullptr);
++  AssertFatal(sib1 != NULL, "Decoded SIB1 is NULL\n");
 +
-+  const plmn_id_t target = {
-+      .mcc = 999,
-+      .mnc = 99,
-+      .mnc_digit_length = 2,
-+  };
-+  plmn_id_t selected = {};
++  plmn_id_t target = {0};
++  target.mcc = 999;
++  target.mnc = 99;
++  target.mnc_digit_length = 2;
++  plmn_id_t selected = {0};
 +  uint64_t selected_nid = 0;
-+  ASSERT_TRUE(nr_sib1_find_snpn(
-+      sib1,
-+      &target,
-+      0x10000000001ULL,
-+      &selected,
-+      &selected_nid));
-+  EXPECT_EQ(selected.mcc, 999);
-+  EXPECT_EQ(selected.mnc, 99);
-+  EXPECT_EQ(selected.mnc_digit_length, 2);
-+  EXPECT_EQ(selected_nid, 0x10000000001ULL);
++  AssertFatal(
++      nr_sib1_find_snpn(
++          sib1,
++          &target,
++          0x10000000001ULL,
++          &selected,
++          &selected_nid),
++      "Expected HARP SNPN identity not found after SIB1 round-trip\n");
++  AssertFatal(
++      selected.mcc == 999
++          && selected.mnc == 99
++          && selected.mnc_digit_length == 2
++          && selected_nid == 0x10000000001ULL,
++      "Unexpected HARP SNPN identity after SIB1 round-trip\n");
++}
 +
++static void assert_snpn_absent(
++    const NR_BCCH_DL_SCH_Message_t *decoded)
++{
++  AssertFatal(
++      decoded->message.present == NR_BCCH_DL_SCH_MessageType_PR_c1
++          && decoded->message.choice.c1 != NULL
++          && decoded->message.choice.c1->present
++              == NR_BCCH_DL_SCH_MessageType__c1_PR_systemInformationBlockType1,
++      "Decoded baseline message is not SIB1\n");
++
++  const NR_SIB1_t *sib1 =
++      decoded->message.choice.c1->choice.systemInformationBlockType1;
++  AssertFatal(sib1 != NULL, "Decoded baseline SIB1 is NULL\n");
++  AssertFatal(
++      sib1->cellAccessRelatedInfo.ext1 == NULL
++          || sib1->cellAccessRelatedInfo.ext1->npn_IdentityInfoList_r16 == NULL,
++      "SNPN disabled but NPN identity list is present\n");
++}
++
++int main(void)
++{
++  logInit();
++
++  NR_BCCH_DL_SCH_Message_t *decoded =
++      harp_build_and_decode_sib1(true, 0x10000000001ULL);
++  assert_harp_snpn_present(decoded);
 +  ASN_STRUCT_FREE(asn_DEF_NR_BCCH_DL_SCH_Message, decoded);
 +
 +  decoded = harp_build_and_decode_sib1(false, 0);
-+  ASSERT_NE(decoded, nullptr);
-+  ASSERT_EQ(decoded->message.present, NR_BCCH_DL_SCH_MessageType_PR_c1);
-+  ASSERT_NE(decoded->message.choice.c1, nullptr);
-+  sib1 = decoded->message.choice.c1->choice.systemInformationBlockType1;
-+  ASSERT_NE(sib1, nullptr);
-+  EXPECT_TRUE(
-+      sib1->cellAccessRelatedInfo.ext1 == nullptr
-+      || sib1->cellAccessRelatedInfo.ext1->npn_IdentityInfoList_r16 == nullptr);
-+
-+  std::printf("PASS_V5G_SNPN_SIB1_CODEC\n");
++  assert_snpn_absent(decoded);
 +  ASN_STRUCT_FREE(asn_DEF_NR_BCCH_DL_SCH_Message, decoded);
++
++  printf("PASS_V5G_SNPN_SIB1_CODEC\n");
++  return 0;
 +}
