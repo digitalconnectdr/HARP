@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-07  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed:** `7cca26bae69fb648a060ba954523374c54d798ba`
+**Baseline commit reviewed through:** `c56adffd7408e301fead26cc375926f2a2095304`
 
 ## 1. Product objective
 
@@ -46,7 +46,7 @@ The repository also contains the **Stage-2A VPN preparation**:
 - `Stage2TunnelConfig`
 - `ProtectedAwareBridge`
 - `HevTunnelAdapter`
-- local verified download scripts for the official HEV Android AAR
+- local checksum-verifying download scripts for the official HEV Android AAR
 
 Target architecture:
 
@@ -282,3 +282,49 @@ Release boundary correction:
 - do not equate “Release 17 modem” with the final HARP feature set;
 - explicit ProSe support in SNPN is standardized through Release-19 work;
 - future hardware procurement for the combined architecture requires feature-level confirmation, not chipset release-number marketing.
+
+
+## 13. Stock-phone relay boundary / B without HARP — 2026-10-07
+
+Detailed review:
+
+- [RESEARCH_STOCK_PHONE_RELAY_BOUNDARY_2026-10-07.md](RESEARCH_STOCK_PHONE_RELAY_BOUNDARY_2026-10-07.md)
+
+New conclusions:
+
+- Android 16/API 36 exposes `TetheringManager`, but the Wi-Fi tethering configuration path for a non-system caller requires privileged tethering permission and provisioning may still be required;
+- `LocalOnlyHotspot` is explicitly local-only and has no Internet access;
+- Wi-Fi Direct lets a device maintain its own uplink while participating in P2P, but the public P2P API is peer connectivity, not a generic NAT/Internet-forwarding service for the peer;
+- Android 17/API 37 improves application-level Wi-Fi Aware data-path negotiation, but both peer applications still participate in the NDP;
+- therefore, sending an “instruction” inside A's packets cannot make an arbitrary stock B originate/forward Internet traffic unless B already has a compatible authorized service interpreting that protocol;
+- the realistic “B without HARP” paths are an already-enabled stock/OEM relay such as tethering, or an OEM/carrier/network-integrated mechanism such as 5G ProSe;
+- 3GPP Release-19 continues to add multi-hop UE-to-Network relay procedures and authorization, strengthening ProSe as the standards-native research branch rather than removing its authorization requirements.
+
+### Static Stage-2A build audit
+
+A fresh static review of the current Stage-2A source found no new conceptual blocker in:
+
+- AGP 9.2.1 / Gradle 9.4.1 compatibility;
+- Java 17 source level;
+- `VpnService` foreground lifecycle;
+- `connectedDevice` foreground-service permission prerequisites;
+- protected + Aware-bound transport socket ordering;
+- current HEV JNI method contract documented by the upstream Android AAR.
+
+This remains a **static review only**. The current execution environment has JDK 21 but no installed Gradle/Android SDK/ADB toolchain, so no Android APK was built here and no device-validation claim is made.
+
+### Current installation decision
+
+Do **not** install on both phones yet.
+
+The two-phone gate remains:
+
+```
+local APK exists
+    -> install same debug APK on A and B
+    -> PASS_STAGE0
+    -> PASS_STAGE1
+    -> PASS_STAGE2_RELAY_READY / PASS_STAGE2_RELAY
+```
+
+Until the local APK exists, continue research/source hardening and the virtual 5G branch without consuming GitHub Actions.
