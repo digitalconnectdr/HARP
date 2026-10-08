@@ -57,6 +57,8 @@ final class HarpAwareController {
     private PeerHandle relayPeer;
     private PeerHandle clientPeer;
     private ConnectivityManager.NetworkCallback netCb;
+    private ConnectivityManager.NetworkCallback upstreamCb;
+    private volatile Network relayUpstreamNetwork;
     private ServerSocket server;
     private Stage2RelayServer stage2Relay;
     private volatile Network clientAwareNetwork;
@@ -376,6 +378,14 @@ final class HarpAwareController {
             // Stage2 relay is persistent: remove the Stage0/1 accept timeout.
             server.setSoTimeout(0);
 
+            if (!InternetNetworkSelector.isUsableInternet(cm, internet)) {
+                HarpLog.i("B: FAIL_STAGE2_RELAY upstream no longer VALIDATED before start");
+                closeRelayTransport();
+                return;
+            }
+
+            registerRelayUpstreamWatch(internet);
+
             Stage2RelayServer relay = new Stage2RelayServer(
                     server,
                     credentials,
@@ -568,7 +578,57 @@ final class HarpAwareController {
         }
     }
 
+
+    private synchronized void registerRelayUpstreamWatch(Network internet) {
+        unregisterRelayUpstreamWatch();
+        relayUpstreamNetwork = internet;
+
+        NetworkRequest request = new NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build();
+
+        ConnectivityManager.NetworkCallback callback =
+                new ConnectivityManager.NetworkCallback() {
+            @Override public void onCapabilitiesChanged(
+                    Network network, NetworkCapabilities caps) {
+                if (!network.equals(relayUpstreamNetwork)) return;
+                if (caps == null
+                        || !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                        || !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                        || caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI_AWARE)) {
+                    HarpLog.i("B: Stage2 upstream lost VALIDATED/INTERNET; "
+                            + "stopping relay fail-closed network=" + network);
+                    closeRelayTransport();
+                }
+            }
+
+            @Override public void onLost(Network network) {
+                if (!network.equals(relayUpstreamNetwork)) return;
+                HarpLog.i("B: Stage2 upstream lost; stopping relay fail-closed network="
+                        + network);
+                closeRelayTransport();
+            }
+        };
+
+        upstreamCb = callback;
+        cm.registerNetworkCallback(request, callback, main);
+        HarpLog.i("B: Stage2 upstream watch registered "
+                + InternetNetworkSelector.describe(cm, internet));
+    }
+
+    private synchronized void unregisterRelayUpstreamWatch() {
+        ConnectivityManager.NetworkCallback callback = upstreamCb;
+        upstreamCb = null;
+        relayUpstreamNetwork = null;
+        if (callback == null) return;
+        try {
+            cm.unregisterNetworkCallback(callback);
+        } catch (Exception ignored) {
+        }
+    }
+
     private synchronized void closeRelayTransport() {
+        unregisterRelayUpstreamWatch();
         try {
             if (stage2Relay != null) {
                 stage2Relay.close();
@@ -593,6 +653,7 @@ final class HarpAwareController {
         clientAwareNetwork = null;
         vpnSession = null;
         try { if (netCb != null) cm.unregisterNetworkCallback(netCb); } catch (Exception ignored) {}
+        unregisterRelayUpstreamWatch();
         try {
             if (stage2Relay != null) {
                 stage2Relay.close();
