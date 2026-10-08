@@ -22,6 +22,10 @@ final class HarpRuntime {
         return controller;
     }
 
+    static synchronized Stage2VpnSession currentVpnSession() {
+        return controller != null ? controller.stage2VpnSession() : null;
+    }
+
     static synchronized HarpAwareController reset(Context context) {
         if (controller != null) {
             controller.close();
