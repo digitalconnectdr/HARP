@@ -2,6 +2,7 @@ package org.harp.l2;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
@@ -189,11 +190,37 @@ final class HarpAwareController {
 
     private boolean preflight() {
         if (closed) return false;
+
+        boolean feature = appContext.getPackageManager()
+                .hasSystemFeature(PackageManager.FEATURE_WIFI_AWARE);
+        HarpLog.i("Device manufacturer=" + android.os.Build.MANUFACTURER
+                + " model=" + android.os.Build.MODEL
+                + " sdk=" + android.os.Build.VERSION.SDK_INT
+                + " awareFeature=" + feature);
+
         if (aware == null) {
             HarpLog.i("FAIL: WifiAwareManager ausente");
             return false;
         }
-        if (!aware.isAvailable()) {
+
+        boolean available = aware.isAvailable();
+        HarpLog.i("Aware available=" + available);
+
+        if (android.os.Build.VERSION.SDK_INT >= 30) {
+            android.net.wifi.aware.Characteristics ch = aware.getCharacteristics();
+            if (ch != null) {
+                HarpLog.i("Aware cipherSuites=0x"
+                        + Integer.toHexString(ch.getSupportedCipherSuites()));
+            } else {
+                HarpLog.i("Aware characteristics=null");
+            }
+        }
+
+        if (!feature) {
+            HarpLog.i("FAIL: FEATURE_WIFI_AWARE no declarado por el dispositivo");
+            return false;
+        }
+        if (!available) {
             HarpLog.i("FAIL: Wi-Fi Aware no disponible");
             return false;
         }
