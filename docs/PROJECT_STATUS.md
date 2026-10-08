@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-07  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `e49297022ff63b3f2e97401cec0d10e444402974`
+**Baseline commit reviewed through:** `1a7f25f5bc91190cdde57fe9bc0a689be8f5b34e`
 
 ## 1. Product objective
 
@@ -487,3 +487,32 @@ Configuration decision:
 - keep SNPN disabled behavior equivalent to upstream ordinary PLMN behavior.
 
 No phone installation is required for this work.
+
+
+## 18. Stage2 upstream fail-closed + SNPN codec/KDF anchors — 2026-10-08
+
+Android relay hardening:
+
+- `ca83547fa179071c9605a614464d69ff7d994521`: B now watches the exact Stage2 Internet upstream and closes the relay if it loses `INTERNET`/`VALIDATED` or disappears;
+- `cd0c5da4545a5fdfd7182b6da978977eabdec943`: Stage2 startup failure also closes the transport instead of leaving a stale listener;
+- `75c05400a922b2a7368d44da115ae76c4cbd2b13`: B records the Wi-Fi Aware interface and rejects an accepted IPv6 link-local peer when an explicit IPv6 scope ID points to a different interface; zero scope remains diagnostic until real-device behavior is measured;
+- `ff84d9b3a185c39f19bfc844004de3fb8d0edaf3`: phone runbook now includes upstream-loss and interface-scope negative tests.
+
+OAI SNPN test design:
+
+- `b6fb856d2835918e20e2074b586c8fc0412241b6`: added `docs/OAI_SNPN_SIB1_CODEC_TEST_PLAN_2026-10-08.md`;
+- the first deterministic OAI gate is now an encode/decode SIB1 round trip linked around OAI's `L2_NR` + NR RRC ASN.1 targets before RFsim;
+- pass order remains:
+  `PASS_NID44_VECTORS -> PASS_V5G_SNPN_SIB1_CODEC -> PASS_V5G_SNPN_BROADCAST -> PASS_V5G_SNPN_SELECT`.
+
+nrUE authentication boundary:
+
+- `1a7f25f5bc91190cdde57fe9bc0a689be8f5b34e` maps the exact current OAI call chain;
+- `servingNetworkName()` still consumes only `plmn_id_t`;
+- `transferRES()`, `derive_kausf()` and `derive_kseaf()` all depend on that PLMN-only SNN;
+- therefore a decoded NID cannot influence 5G-AKA until the serving-network context becomes PLMN+optional NID;
+- new planned gates:
+  `PASS_V5G_SNN_REFACTOR_BASELINE -> PASS_V5G_SNPN_SNN -> PASS_V5G_SNPN_KDF_LAB`.
+
+No GitHub Actions were used.
+No phone installation is required yet.
