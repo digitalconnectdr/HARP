@@ -247,12 +247,12 @@ SNPN codec/selection tests
 
 Do not claim either OAI gate from the existence of these patch files alone.
 
-## Later patches
+## Later work
 
 Still intentionally deferred:
 
-- full SIB1 codec fixture around `get_SIB1_NR()`;
 - production-grade nrUE NID provisioning beyond the lab UICC field;
-- AMF SNPN SNN;
-- KDF positive/negative lab;
-- NGAP/F1AP NID propagation.
+- replacing lab-global AMF NID with serving-network/NGAP-derived NID;
+- end-to-end simple-scenario positive/negative KDF execution;
+- standards-compliant NGAP/F1AP NID propagation;
+- RFsim broadcast/select validation.
