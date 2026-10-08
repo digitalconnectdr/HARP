@@ -1,0 +1,117 @@
+From HARP research branch
+Subject: [PATCH 1c/2] NR UE: add RES*/KAUSF/KSEAF baseline regression vectors
+
+Depends on:
+  0001-nr-ue-serving-network-baseline-refactor.patch
+  0001b-nr-ue-snn-formatter-baseline-test.patch
+
+Upstream anchor:
+  openairinterface/openairinterface5g
+  f8f769592a7030be88ede4bb5ca66fa1ca6a80e0
+
+This patch makes PASS_V5G_SNN_REFACTOR_BASELINE a cryptographic
+regression gate, not merely a string-format gate.
+
+diff --git a/openair3/NAS/NR_UE/5GS/tests/nas_lib_test.c b/openair3/NAS/NR_UE/5GS/tests/nas_lib_test.c
+--- a/openair3/NAS/NR_UE/5GS/tests/nas_lib_test.c
++++ b/openair3/NAS/NR_UE/5GS/tests/nas_lib_test.c
+@@
+ #include "nr_nas_msg.h"
+ 
+ configmodule_interface_t *uniqCfg = NULL;
++
++void transferRES(
++    uint8_t ck[16],
++    uint8_t ik[16],
++    uint8_t *input,
++    uint8_t rand[16],
++    uint8_t *output,
++    const nr_serving_network_id_t *serving_network);
++
++void derive_kausf(
++    uint8_t ck[16],
++    uint8_t ik[16],
++    uint8_t sqn[6],
++    uint8_t kausf[32],
++    const nr_serving_network_id_t *serving_network);
++
++void derive_kseaf(
++    uint8_t kausf[32],
++    uint8_t kseaf[32],
++    const nr_serving_network_id_t *serving_network);
+@@
+ static void test_serving_network_name_baseline(void)
+ {
+@@
+   printf("PASS_V5G_SNN_FORMAT_BASELINE\n");
+ }
++
++static void test_serving_network_kdf_baseline(void)
++{
++  uint8_t ck[16];
++  uint8_t ik[16];
++  uint8_t rand[16];
++  uint8_t sqn[6];
++  uint8_t res_input[8];
++
++  for (int i = 0; i < 16; ++i) {
++    ck[i] = (uint8_t)i;
++    ik[i] = (uint8_t)(0x10 + i);
++    rand[i] = (uint8_t)(0x20 + i);
++  }
++  for (int i = 0; i < 6; ++i)
++    sqn[i] = (uint8_t)(0x30 + i);
++  for (int i = 0; i < 8; ++i)
++    res_input[i] = (uint8_t)(0x40 + i);
++
++  const nr_serving_network_id_t sn = {
++      .plmn = {.mcc = 234, .mnc = 15, .mnc_digit_length = 2},
++      .has_nid = false,
++      .nid = 0,
++  };
++
++  const uint8_t expected_res_star[16] = {
++      0xe5, 0xc9, 0xb0, 0x31, 0xea, 0x67, 0x0b, 0xc4,
++      0x94, 0xe4, 0xdb, 0x45, 0xfb, 0x1c, 0xf2, 0x67,
++  };
++  const uint8_t expected_kausf[32] = {
++      0x17, 0x89, 0xcd, 0x7d, 0x88, 0xb0, 0x7b, 0x80,
++      0x33, 0x30, 0x57, 0x45, 0x44, 0xda, 0x1b, 0xfc,
++      0xb5, 0x2c, 0x67, 0xec, 0x14, 0xb4, 0x07, 0x5b,
++      0x4b, 0x36, 0xd2, 0x62, 0xd7, 0x73, 0xdc, 0x83,
++  };
++  const uint8_t expected_kseaf[32] = {
++      0xe4, 0x00, 0x38, 0xb0, 0x2a, 0xd5, 0x45, 0x7c,
++      0x40, 0xf2, 0x7f, 0x92, 0xe9, 0x2b, 0xdd, 0x73,
++      0x5c, 0x77, 0x20, 0x28, 0x7e, 0xcb, 0xd7, 0xff,
++      0x30, 0x4f, 0x77, 0x51, 0xd7, 0xbf, 0x21, 0x91,
++  };
++
++  uint8_t res_star[16] = {0};
++  uint8_t kausf[32] = {0};
++  uint8_t kseaf[32] = {0};
++
++  transferRES(ck, ik, res_input, rand, res_star, &sn);
++  derive_kausf(ck, ik, sqn, kausf, &sn);
++  derive_kseaf(kausf, kseaf, &sn);
++
++  AssertFatal(
++      memcmp(res_star, expected_res_star, sizeof(res_star)) == 0,
++      "RES* baseline changed");
++  AssertFatal(
++      memcmp(kausf, expected_kausf, sizeof(kausf)) == 0,
++      "KAUSF baseline changed");
++  AssertFatal(
++      memcmp(kseaf, expected_kseaf, sizeof(kseaf)) == 0,
++      "KSEAF baseline changed");
++
++  printf("PASS_V5G_SNN_REFACTOR_BASELINE\n");
++}
+@@
+ int main()
+ {
+@@
+   // Tests list
+   test_serving_network_name_baseline();
++  test_serving_network_kdf_baseline();
+   test_regression_registration_accept();
