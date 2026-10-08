@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-07  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `c56adffd7408e301fead26cc375926f2a2095304`
+**Baseline commit reviewed through:** `285b9a31e7866c42939cfd2f2c09a6f2ba33bdc8`
 
 ## 1. Product objective
 
@@ -364,3 +364,16 @@ HEV configuration was also checked against current upstream documentation:
 - therefore Stage-2A's PASS remains TCP/HTTPS only; UDP/QUIC is explicitly deferred to Stage-2B.
 
 No Android build or device claim is added by this review.
+
+
+## 15. Pre-phone hardening checkpoint — 2026-10-07
+
+Additional source hardening completed before any APK/device installation:
+
+- commit `c66e0441f14a82b25252abc36eb3cc8e64adee4f`: changing A/B role now stops an active Stage-2A VPN before resetting the Aware controller;
+- commit `fb12c0d90a682238b23ee6ee8ba5c904d8d847c9`: a late Stage-2 worker cannot republish a stale VPN handoff after the NDP was lost/reset;
+- commit `b26dd93520b868e341de02f6da981218961d11b6`: phone runbook now requires disabling SoftAP/tethering and Wi-Fi Direct/P2P during the first Aware test, because those modes can make Aware unavailable on some hardware;
+- commit `ed9471c4801e57c66f5332a6e296989566f62c3e`: preflight now logs manufacturer, model, SDK, `FEATURE_WIFI_AWARE`, current availability and advertised cipher suites;
+- commits `c13354f6dc8cc786d6b6b81730dd2757a0908020` and `285b9a31e7866c42939cfd2f2c09a6f2ba33bdc8`: next APK identifies itself as `0.5-stage2a-preflight-hardened` / versionCode 5.
+
+The installation decision is unchanged: **do not install on both phones yet**. First produce the local debug APK without GitHub Actions.
