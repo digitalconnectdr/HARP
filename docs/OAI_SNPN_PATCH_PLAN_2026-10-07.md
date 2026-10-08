@@ -1126,3 +1126,133 @@ Patch 5+
 ```
 
 This is now the preferred implementation sequence.
+
+
+## 26. Exact nrUE SNN/KDF call chain — verified 2026-10-08
+
+The current nrUE source anchor is:
+
+```
+openair3/NAS/NR_UE/nr_nas_msg.c
+```
+
+Current helper:
+
+```c
+static void servingNetworkName(uint8_t *msg, plmn_id_t *plmn_id)
+```
+
+It emits only:
+
+```
+5G:mnc%03d.mcc%03d.3gppnetwork.org
+```
+
+Current authentication derivation path:
+
+```
+derive_ue_keys()
+  |
+  +-> transferRES(..., nas->sn_id)
+  |     -> servingNetworkName(...)
+  |
+  +-> derive_kausf(..., nas->sn_id)
+  |     -> servingNetworkName(...)
+  |
+  +-> derive_kseaf(..., nas->sn_id)
+        -> servingNetworkName(...)
+```
+
+And `nas->sn_id` is currently a `plmn_id_t *` populated from SIB1 by:
+
+```
+openair2/RRC/NR_UE/rrc_UE.c
+nr_rrc_process_sib1()
+```
+
+Therefore:
+
+```
+nrUE can decode a NID
+!=
+NID participates in 5G-AKA
+```
+
+until the serving-network context passed into these KDF functions is expanded.
+
+### 26.1 Required type boundary
+
+Introduce a serving-network identity that can represent both ordinary PLMN and SNPN without changing `plmn_id_t` globally:
+
+```c
+typedef struct {
+  plmn_id_t plmn;
+  bool has_nid;
+  uint64_t nid;  // lower 44 bits
+} nr_serving_network_id_t;
+```
+
+Recommended ownership for the research branch:
+
+```
+RRC SIB1 decode
+  -> nr_serving_network_id_t
+  -> nr_ue_nas_t serving-network context
+  -> SNN formatter
+  -> RES*/K_AUSF/K_SEAF derivation
+```
+
+Do not leave PLMN and NID in unrelated global variables; the selected identity must travel atomically.
+
+### 26.2 Refactor order
+
+Before changing cryptographic behavior:
+
+1. add `nr_serving_network_id_t`;
+2. preserve the existing PLMN path exactly when `has_nid == false`;
+3. change `servingNetworkName()` to consume the new type;
+4. change `transferRES()`, `derive_kausf()`, and `derive_kseaf()` to consume the same type;
+5. update `derive_ue_keys()` to pass the single selected serving-network object;
+6. add deterministic SNN string tests;
+7. only then add SNPN-specific SNN formatting.
+
+This allows a regression gate before any SNPN KDF change.
+
+### 26.3 New intermediate gate
+
+Add:
+
+```
+PASS_V5G_SNN_REFACTOR_BASELINE
+```
+
+Requirements:
+
+- ordinary PLMN SNN remains exactly:
+  `5G:mncXXX.mccYYY.3gppnetwork.org`;
+- RES* baseline remains unchanged for a fixed vector;
+- K_AUSF baseline remains unchanged;
+- K_SEAF baseline remains unchanged;
+- `has_nid == false` produces byte-for-byte identical KDF input strings.
+
+Only after this gate:
+
+```
+PASS_V5G_SNPN_SNN
+```
+
+should prove that changing only the NID changes the canonical SNPN SNN and therefore changes the intended KDF inputs.
+
+### 26.4 Revised sequence after SIB1 selection
+
+```
+PASS_V5G_SNPN_SELECT
+        |
+PASS_V5G_SNN_REFACTOR_BASELINE
+        |
+PASS_V5G_SNPN_SNN
+        |
+PASS_V5G_SNPN_KDF_LAB
+```
+
+This prevents a type refactor from being mistaken for a successful SNPN authentication implementation.
