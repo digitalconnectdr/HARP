@@ -25,7 +25,8 @@ diff --git a/openair2/RRC/NR/MESSAGES/tests/test_asn1_msg.cpp b/openair2/RRC/NR/
 +#include "NR_NID-r16.h"
 @@
  RAN_CONTEXT_t RC;
-@@
+ #ifdef __cplusplus
+ }
  #endif
 +
 +static void fill_test_plmn(NR_PLMN_Identity_t *dst, int mcc_value, int mnc_value)
