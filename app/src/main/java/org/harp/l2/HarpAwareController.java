@@ -56,6 +56,7 @@ final class HarpAwareController {
     private ConnectivityManager.NetworkCallback netCb;
     private ServerSocket server;
     private Stage2RelayServer stage2Relay;
+    private volatile Stage2VpnSession vpnSession;
     private volatile boolean closed;
     private long discoverStarted;
     private long ndpStarted;
@@ -489,11 +490,20 @@ final class HarpAwareController {
             HarpLog.i("A: stage2_relay_elapsed_ms="
                     + (SystemClock.elapsedRealtime() - t2)
                     + " status=" + status);
+            vpnSession = new Stage2VpnSession(
+                    network,
+                    dst,
+                    credentials);
             HarpLog.i("PASS_STAGE2_RELAY");
+            HarpLog.i("A: Stage2 VPN session READY");
         } catch (Exception e) {
             HarpLog.i("FAIL_STAGE2_RELAY "
                     + e.getClass().getSimpleName() + ": " + e.getMessage());
         }
+    }
+
+    Stage2VpnSession stage2VpnSession() {
+        return vpnSession;
     }
 
     private static boolean isAwarePeer(Socket socket) {
@@ -504,6 +514,7 @@ final class HarpAwareController {
     void close() {
         if (closed) return;
         closed = true;
+        vpnSession = null;
         try { if (netCb != null) cm.unregisterNetworkCallback(netCb); } catch (Exception ignored) {}
         try {
             if (stage2Relay != null) {
