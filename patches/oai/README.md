@@ -32,6 +32,7 @@ The strict applicator requires every old context block to match exactly once and
 0003c-snpn-npn-codec-test.patch
 0004-nr-ue-snpn-selection.patch
 0004b-nr-ue-snpn-selection-unit-test.patch
+0004c-snpn-full-sib1-codec-test.patch
 ```
 
 ### Patch 0001
@@ -188,6 +189,25 @@ PASS_V5G_SNPN_SELECT_UNIT
 ```
 
 This is a pre-RFsim unit gate. The runtime `PASS_V5G_SNPN_SELECT` still requires an actual nrUE SIB1 processing path.
+
+### Patch 0004c
+
+Purpose:
+
+- reuse OAI's simulator SCC fixture path (`prepare_scc/fill_scc_sim/fix_scc`);
+- call the real `get_SIB1_NR()` with HARP SNPN enabled;
+- encode using `encode_SIB_NR()`;
+- UPER-decode the complete BCCH-DL-SCH/SIB1;
+- verify exact PLMN+NID through the shared production selector;
+- repeat with SNPN disabled and require the NPN identity list to be absent.
+
+Gate:
+
+```
+PASS_V5G_SNPN_SIB1_CODEC
+```
+
+The staged test currently links `test_asn1_msg` against `L2_NR`, because that library already contains both the gNB SIB1 builder and SCC simulator helpers. This linkage is context-valid but still requires a real CMake/build pass; if the static link proves too heavy, split a dedicated test target instead of weakening the assertions.
 
 ## Validation policy
 
