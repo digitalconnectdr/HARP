@@ -301,6 +301,7 @@ final class HarpAwareController {
                      new OutputStreamWriter(s.getOutputStream(), StandardCharsets.UTF_8), true)) {
             if (!isAwarePeer(s)) {
                 HarpLog.i("B: FAIL_STAGE0 non-link-local peer=" + s.getRemoteSocketAddress());
+                closeRelayTransport();
                 return;
             }
             s.setSoTimeout(10000);
@@ -308,12 +309,14 @@ final class HarpAwareController {
             HarpLog.i("B: Stage0 RX=" + ping);
             if (!Stage0Protocol.isValidPing(ping)) {
                 HarpLog.i("B: FAIL_STAGE0 framing");
+                closeRelayTransport();
                 return;
             }
             out.println(Stage0Protocol.pongFor(ping));
             HarpLog.i("B: Stage0 PONG enviado");
         } catch (Exception e) {
             HarpLog.i("B: FAIL_STAGE0 " + e.getClass().getSimpleName() + ": " + e.getMessage());
+            closeRelayTransport();
             return;
         }
 
@@ -321,11 +324,13 @@ final class HarpAwareController {
         try (Socket s = server.accept()) {
             if (!isAwarePeer(s)) {
                 HarpLog.i("B: FAIL_STAGE1 non-link-local peer=" + s.getRemoteSocketAddress());
+                closeRelayTransport();
                 return;
             }
             internet = InternetNetworkSelector.choose(cm);
             if (internet == null) {
                 HarpLog.i("B: FAIL_STAGE1 sin Internet VALIDATED separado de Aware");
+                closeRelayTransport();
                 return;
             }
             HarpLog.i("B: upstream=" + InternetNetworkSelector.describe(cm, internet));
@@ -348,6 +353,7 @@ final class HarpAwareController {
         } catch (Exception e) {
             HarpLog.i("B: FAIL_STAGE1 proxy " + e.getClass().getSimpleName()
                     + ": " + e.getMessage());
+            closeRelayTransport();
             return;
         }
 
@@ -368,6 +374,7 @@ final class HarpAwareController {
             if (!isAwarePeer(control)) {
                 HarpLog.i("B: FAIL_STAGE2_CONTROL non-link-local peer="
                         + control.getRemoteSocketAddress());
+                closeRelayTransport();
                 return;
             }
 
@@ -377,12 +384,14 @@ final class HarpAwareController {
             String ack = in.readLine();
             if (!Stage2ControlProtocol.OK.equals(ack)) {
                 HarpLog.i("B: FAIL_STAGE2_CONTROL ack=" + ack);
+                closeRelayTransport();
                 return;
             }
             HarpLog.i("B: Stage2 control OK");
         } catch (Exception e) {
             HarpLog.i("B: FAIL_STAGE2_CONTROL "
                     + e.getClass().getSimpleName() + ": " + e.getMessage());
+            closeRelayTransport();
             return;
         }
 
@@ -676,6 +685,16 @@ final class HarpAwareController {
 
     private synchronized void closeRelayTransport() {
         unregisterRelayUpstreamWatch();
+
+        ConnectivityManager.NetworkCallback callback = netCb;
+        netCb = null;
+        if (callback != null) {
+            try {
+                cm.unregisterNetworkCallback(callback);
+            } catch (Exception ignored) {
+            }
+        }
+
         relayAwareInterfaceIndex = 0;
         relayAwareInterfaceName = null;
         relayAwareLocalIpv6 = Collections.emptyList();
@@ -686,6 +705,7 @@ final class HarpAwareController {
             } else if (server != null) {
                 server.close();
             }
+            server = null;
         } catch (Exception e) {
             HarpLog.i("B: relay transport close warning "
                     + e.getClass().getSimpleName() + ": " + e.getMessage());
