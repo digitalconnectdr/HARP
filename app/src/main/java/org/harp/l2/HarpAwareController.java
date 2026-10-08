@@ -406,6 +406,7 @@ final class HarpAwareController {
         } catch (Exception e) {
             HarpLog.i("B: FAIL_STAGE2_RELAY "
                     + e.getClass().getSimpleName() + ": " + e.getMessage());
+            closeRelayTransport();
         }
     }
 
