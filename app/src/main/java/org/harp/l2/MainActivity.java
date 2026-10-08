@@ -28,7 +28,7 @@ public final class MainActivity extends Activity implements HarpLog.Listener {
         root.setPadding(24, 24, 24, 24);
 
         TextView title = new TextView(this);
-        title.setText("HARP L2 — Stage 0/1");
+        title.setText("HARP L2 — Relay preflight");
         title.setTextSize(22);
         root.addView(title);
 
@@ -51,7 +51,7 @@ public final class MainActivity extends Activity implements HarpLog.Listener {
 
         HarpLog.addListener(this);
         requestRuntimePermissions();
-        HarpLog.i("HARP Stage01 v8 listo");
+        HarpLog.i("HARP " + BuildMarker.VERSION + " listo");
     }
 
     private Button button(String text, View.OnClickListener listener) {
@@ -113,7 +113,7 @@ public final class MainActivity extends Activity implements HarpLog.Listener {
 
     private void copyLog() {
         ClipboardManager cb = getSystemService(ClipboardManager.class);
-        cb.setPrimaryClip(ClipData.newPlainText("HARP Stage01", HarpLog.snapshot()));
+        cb.setPrimaryClip(ClipData.newPlainText("HARP Relay Preflight", HarpLog.snapshot()));
         Toast.makeText(this, "Log copiado", Toast.LENGTH_SHORT).show();
     }
 
