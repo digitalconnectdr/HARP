@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-07  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `285b9a31e7866c42939cfd2f2c09a6f2ba33bdc8`
+**Baseline commit reviewed through:** `8810ab4144a95aad281e4f6cc665d0d75bb7b415`
 
 ## 1. Product objective
 
@@ -377,3 +377,37 @@ Additional source hardening completed before any APK/device installation:
 - commits `c13354f6dc8cc786d6b6b81730dd2757a0908020` and `285b9a31e7866c42939cfd2f2c09a6f2ba33bdc8`: next APK identifies itself as `0.5-stage2a-preflight-hardened` / versionCode 5.
 
 The installation decision is unchanged: **do not install on both phones yet**. First produce the local debug APK without GitHub Actions.
+
+
+## 16. OAI SNPN source anchor + Aware cipher hardening — 2026-10-07
+
+Current OAI source was re-checked against the official GitHub mirror:
+
+```
+openairinterface/openairinterface5g
+develop
+f8f769592a7030be88ede4bb5ca66fa1ca6a80e0
+integration 2026.w40
+```
+
+New concrete SNPN findings:
+
+- `get_SIB1_NR()` in `openair2/LAYER2/NR_MAC_gNB/nr_radio_config.c` is the first practical patch anchor for HARP's PLMN+NID broadcast experiment;
+- current OAI builds ordinary `plmn_IdentityInfoList` there, but does not populate the HARP-required NPN/NID identity path;
+- generated Rel-17 ASN.1 support exists for `NR_NID-r16` and `NR_NPN-IdentityInfoList-r16`;
+- `AvailableSNPN_ID_List` remains explicitly unsupported in `openair2/F1AP/lib/f1ap_interface_management.c`;
+- therefore the first SNPN proof should use monolithic/full-stack RFsim and split the gate into:
+  - `PASS_V5G_SNPN_BROADCAST`;
+  - `PASS_V5G_SNPN_SELECT`;
+- F1AP/NGAP/core propagation remains a later gate rather than a prerequisite for the first NID broadcast experiment.
+
+The detailed patch plan was updated in commit `8339f2b98cacf917d2c8bc2824961d972c9a74f9`.
+
+Android Aware hardening also changed:
+
+- API 33+ HARP now prefers `NCS_SK_256` when supported;
+- it falls back to `NCS_SK_128`;
+- it fails closed if no shared-key Aware cipher is available;
+- commit: `8810ab4144a95aad281e4f6cc665d0d75bb7b415`.
+
+No installation is required yet.
