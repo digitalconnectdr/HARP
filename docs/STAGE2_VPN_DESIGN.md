@@ -1,1 +1,242 @@
-# HARP Stage-2 — VPN routing design\n\nEste documento fija decisiones de routing antes de implementar VpnService.\n\n## Topología\n\n    Apps en A\n      -> Android VpnService / TUN\n      -> tun2socks\n      -> SOCKS local bridge\n      -> socket protegido\n      -> Wi-Fi Aware Network\n      -> B SOCKS relay\n      -> Internet de B\n\n## Socket de transporte A -> B\n\nEl socket que transporta el túnel debe permanecer fuera del VPN. Secuencia:\n\n1. Crear `Socket` sin conectar.\n2. `VpnService.protect(socket)`.\n3. `awareNetwork.bindSocket(socket)`.\n4. `socket.connect(peerIpv6, port)`.\n\n`protect()` evita que el propio transporte del VPN vuelva a entrar al TUN y cree un loop.\n\n## setUnderlyingNetworks\n\nCuando el transporte protegido está explícitamente ligado a la `Network` Wi-Fi Aware, HARP debe declarar esa red como underlying network:\n\n    builder.setUnderlyingNetworks(new Network[]{awareNetwork})\n\no, después de establecer el VPN:\n\n    vpnService.setUnderlyingNetworks(new Network[]{awareNetwork})\n\nRazón: Android define las underlying networks como las redes que llevan los canales del VPN hacia su servidor. En HARP el servidor inmediato del túnel es B, alcanzado por Wi-Fi Aware. Que B use después Wi-Fi/celular/Ethernet para salir a Internet es externo al networking de A.\n\nNo usar `null` en este caso: `null` significa que el VPN usa la red default del sistema, lo cual no describe HARP.\n\nNo usar array vacío mientras exista el túnel: array vacío significa que el VPN no tiene conexión subyacente.\n\nActualizar el valor si cambia el NDP/Network de Aware.\n\n## No usar bindProcessToNetwork\n\nNo ligar todo el proceso HARP a Aware. Sólo el socket de transporte A->B debe usar `Network.bindSocket()` o `Network.getSocketFactory()`.\n\nEn B tampoco ligar el proceso completo a Aware, porque los sockets de salida hacia Internet deben usar la red validada de B.\n\n## Local bridge\n\nPrimera implementación recomendada:\n\n    tun2socks\n      -> 127.0.0.1:11080\n      -> ProtectedAwareBridge\n      -> protected + bound Socket\n      -> B:SOCKS\n\nEl bridge es protocol-blind: reenvía bytes SOCKS sin interpretar destinos. Esto permite mantener la creación/protección/binding del socket Aware en Java/Kotlin y evitar modificar inicialmente la librería nativa tun2socks.\n\n## Gate Stage-2\n\nPASS sólo cuando:\n\n- A no tiene Internet propio.\n- VPN aprobado por el usuario.\n- transporte del túnel protegido y ligado a Aware.\n- Chrome/app normal en A carga HTTPS.\n- la salida observada corresponde a la conectividad de B.\n\nStage-2 no debe depender de GitHub Actions; build local mientras la cuota de Actions esté restringida.\n\n## Stage-2A: TCP-first sin servidor nativo en B\n\nPrimera implementación para probar Chrome/HTTPS:\n\n- A usa el AAR oficial `hev-socks5-tunnel`.\n- B mantiene el SOCKS Java de HARP.\n- `mapdns` responde DNS localmente en A con direcciones sintéticas y conserva el nombre de dominio para el SOCKS CONNECT.\n- UDP general/QUIC queda fuera de este primer gate.\n\nConfiguración inicial propuesta para HEV en A:\n\n    tunnel:\n      mtu: 1500\n      ipv4: 198.18.0.1\n      icmp: 'off'\n\n    socks5:\n      address: 127.0.0.1\n      port: 11080\n      udp: 'tcp'\n      username: 'harp'\n      password: '<session-secret>'\n\n    mapdns:\n      address: 198.18.0.2\n      port: 53\n      network: 100.64.0.0\n      netmask: 255.192.0.0\n      cache-size: 10000\n\nVpnService inicial en A:\n\n- `addAddress("198.18.0.1", 32)`\n- `addRoute("0.0.0.0", 0)`\n- `addDnsServer("198.18.0.2")`\n- `setMtu(1500)`\n- `setUnderlyingNetworks(new Network[]{awareNetwork})`\n- API 33+: `excludeRoute(127.0.0.0/8)` para mantener el bridge local fuera de la ruta default del VPN.\n\nEl upstream de HEV es `127.0.0.1:11080`, donde escucha `ProtectedAwareBridge`. El bridge crea el único socket remoto A->B, lo protege con `VpnService.protect()`, lo liga con `awareNetwork.bindSocket()` y conecta al SOCKS de B.\n\n## Stage-2B: UDP/QUIC completo\n\nDespués de demostrar Stage-2A:\n\n- sustituir/acompañar el SOCKS Java de B con `hev-socks5-server`.\n- habilitar FWD UDP / UDP-over-TCP.\n- validar DNS UDP, QUIC/HTTP3 y tráfico UDP arbitrario.\n\nEl servidor HEV oficial soporta CONNECT, UDP ASSOCIATE y FWD UDP, pero su integración Android documentada actualmente se construye con NDK; no se debe introducir esa dependencia en B antes de que Stage-2A demuestre valor.\n
+# HARP Stage-2A — VPN routing design
+
+Este documento fija la arquitectura TCP-first que se implementa después del relay preflight.
+
+## Topología
+
+```
+Apps / Chrome en A
+  -> Android VpnService / TUN
+  -> HEV tun2socks
+  -> 127.0.0.1:11080
+  -> ProtectedAwareBridge
+  -> socket protegido
+  -> Wi-Fi Aware Network
+  -> Stage2RelayServer en B
+  -> Internet de B
+```
+
+## Gate previo obligatorio
+
+No iniciar el VPN hasta haber demostrado en la misma sesión:
+
+```
+PASS_STAGE0
+PASS_STAGE1
+PASS_STAGE2_RELAY
+```
+
+Sólo después de `PASS_STAGE2_RELAY`, A publica un `Stage2VpnSession` en el runtime del proceso con:
+
+- el objeto Android `Network` correspondiente al NDP Aware;
+- la dirección IPv6 link-local scoped + puerto del relay;
+- las credenciales SOCKS efímeras ya probadas.
+
+## Ciclo de vida Android
+
+El arranque Stage-2A es explícitamente iniciado por el usuario con la app visible:
+
+1. Usuario pulsa **A — ACTIVAR VPN (Stage2A)**.
+2. HARP verifica que exista un `Stage2VpnSession` probado.
+3. HARP verifica que el AAR HEV esté empaquetado.
+4. `VpnService.prepare(context)`.
+5. Si Android requiere consentimiento, mostrar el diálogo del sistema.
+6. Tras `RESULT_OK`, llamar `startForegroundService()`.
+7. `HarpVpnService` se promueve inmediatamente a foreground.
+8. Tipo de foreground service: `connectedDevice`.
+9. El servicio es `START_NOT_STICKY`; una sesión Aware perdida no se restaura silenciosamente.
+
+Always-on VPN está deshabilitado para este PoC porque una restauración tras process death no tendría ni NDP ni credenciales efímeras válidas.
+
+## Propiedad de la sesión
+
+`MainActivity` ya no es dueña del `HarpAwareController`.
+
+`HarpRuntime` mantiene la sesión a nivel del proceso. Esto evita que abrir Chrome o recrear la Activity cierre el NDP.
+
+Cuando el VPN esté activo, el foreground service mantiene vivo el proceso. Una futura versión deberá mover también la renovación/recreación completa de Aware a un componente de servicio más autónomo.
+
+## Socket de transporte A -> B
+
+El socket que transporta el túnel debe permanecer fuera del VPN:
+
+1. Crear `Socket` sin conectar.
+2. `VpnService.protect(socket)`.
+3. `awareNetwork.bindSocket(socket)`.
+4. `socket.connect(peerIpv6, port)`.
+
+`ProtectedAwareBridge` implementa exactamente esa secuencia.
+
+El bridge escucha únicamente:
+
+```
+127.0.0.1:11080
+```
+
+y exige que el relay remoto sea IPv6 link-local scoped.
+
+## Underlying network
+
+HARP declara la Wi-Fi Aware `Network` como underlying network del VPN:
+
+```java
+builder.setUnderlyingNetworks(new Network[]{awareNetwork});
+```
+
+Esto no afirma que Aware tenga acceso público a Internet por sí misma. Significa que Aware transporta el canal VPN desde A hasta su servidor inmediato B.
+
+No usar `bindProcessToNetwork(awareNetwork)`.
+
+## Evitar el VPN loop
+
+Además de `protect()`, el builder excluye el propio paquete HARP del VPN:
+
+```java
+builder.addDisallowedApplication(getPackageName());
+```
+
+Por tanto:
+
+- Chrome/apps normales de A entran al TUN.
+- los sockets del propio proceso HARP/HEV no vuelven al TUN;
+- el socket remoto del bridge está además protegido y ligado explícitamente a Aware.
+
+## Builder inicial
+
+```java
+new VpnService.Builder()
+    .setSession("HARP Stage2A")
+    .setBlocking(false)
+    .setMtu(1500)
+    .addAddress("198.18.0.1", 32)
+    .addRoute("0.0.0.0", 0)
+    .addDnsServer("198.18.0.2")
+    .setUnderlyingNetworks(new Network[]{awareNetwork});
+```
+
+Stage-2A es IPv4-first deliberadamente.
+
+## HEV 2.18.0
+
+HARP usa el AAR oficial de `heiher/hev-socks5-tunnel` sólo en el build Stage-2A.
+
+Versión fijada:
+
+```
+2.18.0
+```
+
+AAR:
+
+```
+hev-socks5-tunnel.aar
+```
+
+SHA-256 fijado:
+
+```
+15ec8ed121663b562c99caa5bb602d1009f24e5b09e733438b81988f12feaaab
+```
+
+El archivo no se compromete al repositorio. Se descarga localmente con los scripts de `tools/` y se verifica antes de incluirlo.
+
+`HevTunnelAdapter` usa por reflexión el contrato:
+
+```
+hev.htproxy.TProxyService
+TProxyStartService(String configPath, int fd)
+TProxyStopService()
+TProxyIsRunning()
+TProxyGetStats()
+```
+
+Stage-0/1/2 relay preflight compila sin el AAR.
+
+## Configuración HEV
+
+`Stage2TunnelConfig` genera:
+
+```yaml
+tunnel:
+  name: tun0
+  mtu: 1500
+  ipv4: 198.18.0.1
+  icmp: 'off'
+
+socks5:
+  address: 127.0.0.1
+  port: 11080
+  udp: 'tcp'
+  username: '<ephemeral-user>'
+  password: '<ephemeral-secret>'
+
+mapdns:
+  address: 198.18.0.2
+  port: 53
+  network: 100.64.0.0
+  netmask: 255.192.0.0
+  cache-size: 10000
+```
+
+`mapdns` permite que el primer gate de Chrome sea TCP/HTTPS sin exigir UDP ASSOCIATE en B: HEV conserva el hostname y lo usa en SOCKS CONNECT.
+
+## Política del relay B
+
+`Stage2RelayServer`:
+
+- requiere credenciales efímeras;
+- sólo admite peers IPv6 link-local;
+- limita sesiones concurrentes;
+- no muere si un peer inválido es rechazado;
+- política `publicWeb()`: sólo puertos 80/443;
+- bloquea destinos privados/locales/link-local/multicast/CGNAT/test ranges;
+- DNS sale por la `Network` validada elegida de B;
+- TCP sale por `SocketFactory` de esa misma `Network`.
+
+## Orden de inicio del servicio
+
+```
+startForeground
+ -> verificar Stage2VpnSession
+ -> establecer TUN
+ -> escribir YAML HEV
+ -> arrancar ProtectedAwareBridge
+ -> TProxyStartService(configPath, tunFd)
+ -> PASS_STAGE2_VPN_STARTED
+```
+
+## Orden de parada
+
+```
+HEV stop
+ -> bridge close
+ -> TUN close
+ -> borrar config temporal
+ -> stopForeground
+```
+
+`onRevoke()` ejecuta el mismo cierre.
+
+## Gate Stage-2A
+
+PASS sólo cuando:
+
+- A no tiene Internet propio;
+- B conserva una salida Internet validada;
+- relay preflight ya pasó;
+- VPN fue aprobado por el usuario;
+- aparece `PASS_STAGE2_VPN_STARTED`;
+- Chrome/app normal en A carga HTTPS;
+- el tráfico sale por B.
+
+## Fuera de Stage-2A
+
+Queda para Stage-2B:
+
+- UDP general;
+- QUIC/HTTP3;
+- IPv6 end-to-end;
+- `hev-socks5-server` en B;
+- background/autowake robusto;
+- rotación temporal/TTL explícita de credenciales;
+- recuperación automática de NDP/upstream.
