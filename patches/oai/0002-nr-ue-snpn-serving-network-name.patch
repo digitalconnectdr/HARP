@@ -3,6 +3,7 @@ Subject: [PATCH 2/2] NR UE: add SNPN NID to serving network name
 
 Depends on:
   0001-nr-ue-serving-network-baseline-refactor.patch
+  0001b-nr-ue-snn-formatter-baseline-test.patch
 
 Upstream anchor:
   openairinterface/openairinterface5g
@@ -15,24 +16,105 @@ diff --git a/openair3/NAS/NR_UE/nr_nas_msg.c b/openair3/NAS/NR_UE/nr_nas_msg.c
 --- a/openair3/NAS/NR_UE/nr_nas_msg.c
 +++ b/openair3/NAS/NR_UE/nr_nas_msg.c
 @@
- static void servingNetworkName(uint8_t *msg, const nr_serving_network_id_t *sn)
+ bool nr_format_serving_network_name(
+     char *out,
+     size_t out_size,
+     const nr_serving_network_id_t *sn)
  {
+   if (!out || out_size == 0 || !sn)
+     return false;
+ 
    // SNN-network-identifier in TS 24.501
    // TS 24.501: If the MNC of the serving PLMN has two digits, then a zero is added at the beginning.
--  int size = 64;
-+  int size = 80;
- 
    const plmn_id_t *plmn_id = &sn->plmn;
--  snprintf((char *)msg, size, "5G:mnc%03d.mcc%03d.3gppnetwork.org", plmn_id->mnc, plmn_id->mcc);
-+  if (sn->has_nid) {
-+    AssertFatal(sn->nid <= 0xFFFFFFFFFFFULL, "SNPN NID exceeds 44 bits");
-+    snprintf((char *)msg,
-+             size,
-+             "5G:mnc%03d.mcc%03d.3gppnetwork.org:%011llX",
-+             plmn_id->mnc,
-+             plmn_id->mcc,
-+             (unsigned long long)sn->nid);
-+  } else {
-+    snprintf((char *)msg, size, "5G:mnc%03d.mcc%03d.3gppnetwork.org", plmn_id->mnc, plmn_id->mcc);
-+  }
+-  const int n = snprintf(
+-      out,
+-      out_size,
+-      "5G:mnc%03d.mcc%03d.3gppnetwork.org",
+-      plmn_id->mnc,
+-      plmn_id->mcc);
++  if (sn->has_nid && sn->nid > 0xFFFFFFFFFFFULL)
++    return false;
++
++  const int n = sn->has_nid
++      ? snprintf(
++            out,
++            out_size,
++            "5G:mnc%03d.mcc%03d.3gppnetwork.org:%011llX",
++            plmn_id->mnc,
++            plmn_id->mcc,
++            (unsigned long long)sn->nid)
++      : snprintf(
++            out,
++            out_size,
++            "5G:mnc%03d.mcc%03d.3gppnetwork.org",
++            plmn_id->mnc,
++            plmn_id->mcc);
+   return n > 0 && (size_t)n < out_size;
  }
+ 
+ static void servingNetworkName(uint8_t *msg, const nr_serving_network_id_t *sn)
+ {
+   AssertFatal(
+-      nr_format_serving_network_name((char *)msg, 64, sn),
++      nr_format_serving_network_name((char *)msg, 80, sn),
+       "Could not format serving network name");
+ }
+
+diff --git a/openair3/NAS/NR_UE/5GS/tests/nas_lib_test.c b/openair3/NAS/NR_UE/5GS/tests/nas_lib_test.c
+--- a/openair3/NAS/NR_UE/5GS/tests/nas_lib_test.c
++++ b/openair3/NAS/NR_UE/5GS/tests/nas_lib_test.c
+@@
+ static void test_serving_network_name_baseline(void)
+ {
+@@
+   printf("PASS_V5G_SNN_FORMAT_BASELINE\n");
+ }
++
++static void test_serving_network_name_snpn(void)
++{
++  const nr_serving_network_id_t sn = {
++      .plmn = {.mcc = 999, .mnc = 99, .mnc_digit_length = 2},
++      .has_nid = true,
++      .nid = 0x10000000001ULL,
++  };
++  char out[80] = {0};
++  AssertFatal(
++      nr_format_serving_network_name(out, sizeof(out), &sn),
++      "SNPN SNN formatting failed");
++  AssertFatal(
++      strcmp(
++          out,
++          "5G:mnc099.mcc999.3gppnetwork.org:10000000001") == 0,
++      "Unexpected SNPN SNN %s",
++      out);
++
++  nr_serving_network_id_t low = sn;
++  low.nid = 1;
++  memset(out, 0, sizeof(out));
++  AssertFatal(
++      nr_format_serving_network_name(out, sizeof(out), &low),
++      "SNPN SNN formatting failed");
++  AssertFatal(
++      strcmp(
++          out,
++          "5G:mnc099.mcc999.3gppnetwork.org:00000000001") == 0,
++      "Unexpected leading-zero SNPN SNN %s",
++      out);
++
++  nr_serving_network_id_t overflow = sn;
++  overflow.nid = 0x100000000000ULL;
++  AssertFatal(
++      !nr_format_serving_network_name(out, sizeof(out), &overflow),
++      "44-bit overflow must be rejected");
++
++  printf("PASS_V5G_SNPN_SNN\n");
++}
+@@
+ int main()
+ {
+@@
+   // Tests list
+   test_serving_network_name_baseline();
++  test_serving_network_name_snpn();
+   test_regression_registration_accept();
