@@ -1,1 +1,158 @@
-# HARP Stage-0/1 — Phone Test Runbook\n\nNo ejecutar esta prueba hasta disponer de un APK debug compilado localmente.\n\n## Objetivo\n\nDemostrar dos hechos por separado:\n\n1. **PASS_STAGE0**: A y B establecen un data path Wi-Fi Aware y una sesión TCP autenticada por nonce.\n2. **PASS_STAGE1**: A alcanza un servidor HTTPS público mediante B.\n\nStage-1 todavía no convierte todo el teléfono A en un cliente Internet general; eso corresponde a Stage-2 con VpnService + tun2socks.\n\n## Dispositivos\n\n- **A = CLIENTE**: HARP instalado y Wi-Fi Aware soportado. Para la prueba decisiva, datos móviles OFF y sin Wi-Fi con Internet.\n- **B = RELAY**: HARP instalado, Wi-Fi Aware soportado y al menos una red con `INTERNET + VALIDATED`. HARP prioriza `NOT_METERED` cuando exista.\n\n## Preparación\n\n1. Instalar la misma APK en A y B.\n2. Abrir HARP en ambos.\n3. Conceder permiso **Dispositivos Wi-Fi cercanos**.\n4. Mantener ambas apps visibles durante esta primera prueba.\n5. En B confirmar que existe Internet normal antes de iniciar HARP.\n\n## Ejecución\n\n1. En B pulsar **B — RELAY**.\n2. Esperar `B: attach OK` y `B: publish OK`.\n3. En A pulsar **A — CLIENTE**.\n4. Esperar discovery: `A: relay descubierto`, `A: discovery TX OK`, `B: discovery RX=HELLO`.\n5. Esperar NDP: `B: NDP available`, `A: NDP available`, y un peer IPv6 link-local con puerto.\n6. Stage-0 debe terminar con `PASS_STAGE0`.\n7. Stage-1 debe mostrar en B una red `validated=true`, transporte y `metered=true/false`, seguido de `B: DNS via upstream count=...`.\n8. A debe terminar con `PASS_STAGE1`.\n\n## Criterio PASS\n\nLa sesión es válida sólo si:\n\n- A no tiene Internet propio durante la prueba decisiva.\n- B sí tiene una red Internet validada.\n- aparece `PASS_STAGE0`.\n- aparece `PASS_STAGE1`.\n- no aparece `FAIL_STAGE0`, `FAIL_STAGE1` ni `NDP_TIMEOUT`.\n\n## Interpretación\n\n`PASS_STAGE0` demuestra `A <-> Wi-Fi Aware <-> B`.\n\n`PASS_STAGE1` demuestra `A -> Wi-Fi Aware -> B -> DNS sobre la Network elegida de B -> TCP sobre la misma Network -> TLS a example.com`.\n\nNo demuestra aún Internet transparente para Chrome u otras apps. Ese es el gate de Stage-2.\n\n## Si falla\n\nCopiar el log completo de A y B mediante **COPIAR LOG** y conservar ambos.\n\n- `attach FAILED`: disponibilidad/permiso de Aware.\n- `publish FAILED` / `subscribe FAILED`: discovery config.\n- `discovery TX FAILED`: mensaje Aware; HARP reintenta una vez.\n- `NDP_TIMEOUT`: data path/security/specifier.\n- `FAIL_STAGE0`: socket/framing/local route.\n- `FAIL_STAGE1 sin Internet VALIDATED`: B no tiene salida Internet válida.\n- `FAIL_STAGE1 proxy`: DNS/TCP/SOCKS/egress.\n- Error TLS/HTTPS en A: conexión pública alcanzada parcialmente pero validación TLS/HTTP falló.\n\n## Después de PASS_STAGE1\n\nNo ampliar Stage-1. El siguiente trabajo es Stage-2: `A apps -> VpnService -> protected local bridge -> tun2socks -> Wi-Fi Aware -> B SOCKS -> Internet`.\n
+# HARP Stage-0/1/2 relay preflight — Phone Test Runbook
+
+No ejecutar esta prueba hasta disponer de un APK debug compilado localmente.
+
+## Objetivo
+
+Demostrar tres hechos por separado en una sola sesión:
+
+1. **PASS_STAGE0**: A y B establecen un data path Wi-Fi Aware y una sesión TCP validada por nonce.
+2. **PASS_STAGE1**: A alcanza un servidor HTTPS público mediante B usando el SOCKS de laboratorio.
+3. **PASS_STAGE2_RELAY**: B genera credenciales efímeras dentro del NDP cifrado, arranca un relay persistente autenticado y A alcanza HTTPS otra vez usando esas credenciales.
+
+Este tercer gate valida la base del relay persistente que después usará `VpnService + HEV tun2socks`. Todavía no hace transparente Internet para Chrome.
+
+## Dispositivos
+
+### A = CLIENTE
+
+- HARP instalado.
+- Wi-Fi Aware soportado.
+- Para la prueba decisiva: datos móviles OFF y sin Wi-Fi con Internet.
+
+### B = RELAY
+
+- HARP instalado.
+- Wi-Fi Aware soportado.
+- Al menos una red con `INTERNET + VALIDATED`.
+- HARP prioriza una salida `NOT_METERED` cuando exista.
+
+## Preparación
+
+1. Instalar la misma APK en A y B.
+2. Abrir HARP en ambos.
+3. Conceder **Dispositivos Wi-Fi cercanos**.
+4. Mantener ambas apps visibles durante esta primera prueba.
+5. En B confirmar que Internet normal funciona antes de iniciar HARP.
+
+## Ejecución
+
+1. En B pulsar **B — RELAY**.
+2. Esperar:
+   ```
+   B: attach OK
+   B: publish OK
+   ```
+3. En A pulsar **A — CLIENTE**.
+4. Discovery debe mostrar:
+   ```
+   A: relay descubierto discovery_ms=...
+   A: discovery TX OK ...
+   B: discovery RX=HELLO
+   ```
+5. NDP debe mostrar:
+   ```
+   B: NDP available ...
+   A: NDP available ndp_ms=...
+   A: peer=/fe80::...:<port>
+   ```
+6. Stage-0 debe terminar con:
+   ```
+   PASS_STAGE0
+   ```
+7. Stage-1 debe mostrar en B:
+   ```
+   B: upstream=... transport=... validated=true metered=...
+   B: DNS via upstream host=example.com count=...
+   ```
+   y en A:
+   ```
+   PASS_STAGE1
+   ```
+8. Stage-2 control debe mostrar en A:
+   ```
+   A: Stage2 credentials recibidas userLen=... passLen=...
+   ```
+   y en B:
+   ```
+   B: Stage2 control OK
+   PASS_STAGE2_RELAY_READY port=...
+   ```
+9. El relay persistente debe terminar en A con:
+   ```
+   PASS_STAGE2_RELAY
+   ```
+
+## Criterio PASS completo
+
+La sesión sólo pasa si:
+
+- A no tiene Internet propio durante la prueba decisiva.
+- B sí tiene una red Internet validada.
+- aparece `PASS_STAGE0`.
+- aparece `PASS_STAGE1`.
+- aparece `PASS_STAGE2_RELAY_READY` en B.
+- aparece `PASS_STAGE2_RELAY` en A.
+- no aparece `NDP_TIMEOUT`, `FAIL_STAGE0`, `FAIL_STAGE1`, `FAIL_STAGE2_CONTROL` ni `FAIL_STAGE2_RELAY`.
+
+## Qué demuestra cada gate
+
+`PASS_STAGE0`:
+
+```
+A <-> Wi-Fi Aware <-> B
+```
+
+`PASS_STAGE1`:
+
+```
+A
+ -> Wi-Fi Aware
+ -> B
+ -> DNS sobre la Network elegida de B
+ -> TCP sobre la misma Network
+ -> TLS a example.com
+```
+
+`PASS_STAGE2_RELAY` añade:
+
+```
+NDP cifrado
+ -> credenciales efímeras de sesión
+ -> SOCKS persistente autenticado
+ -> política public-web
+ -> HTTPS real
+```
+
+Todavía no demuestra Internet transparente para aplicaciones arbitrarias de A.
+
+## Si falla
+
+Copiar el log completo de A y B mediante **COPIAR LOG**.
+
+- `attach FAILED`: disponibilidad/permiso Aware.
+- `publish FAILED` / `subscribe FAILED`: discovery.
+- `discovery TX FAILED`: mensaje Aware; HARP reintenta una vez.
+- `NDP_TIMEOUT`: data path/security/specifier.
+- `FAIL_STAGE0`: socket/framing/ruta local.
+- `FAIL_STAGE1 sin Internet VALIDATED`: B no tiene salida válida.
+- `FAIL_STAGE1 proxy`: DNS/TCP/SOCKS/egress.
+- `FAIL_STAGE2_CONTROL`: entrega/parseo/ACK de credenciales.
+- `FAIL_STAGE2_RELAY`: relay persistente, autenticación, política o HTTPS.
+
+## Después de PASS_STAGE2_RELAY
+
+El siguiente gate es Stage-2A VPN:
+
+```
+Chrome/apps en A
+ -> Android VpnService
+ -> HEV tun2socks
+ -> 127.0.0.1:11080
+ -> ProtectedAwareBridge
+ -> Wi-Fi Aware
+ -> Stage2RelayServer en B
+ -> Internet
+```
+
+La prueba final de Stage-2A exigirá que Chrome en A cargue HTTPS mientras A no tiene Internet propio.
