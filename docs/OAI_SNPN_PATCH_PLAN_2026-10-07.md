@@ -945,3 +945,184 @@ Patch 8+: NGAP ASN.1/version work and standards-based NID propagation
 ```
 
 This order gives HARP measurable progress without letting the current NGAP Release-15 boundary block all SNPN research.
+
+
+## 25. Concrete upstream OAI anchor — verified 2026-10-07
+
+The current official GitHub mirror reviewed for this plan is:
+
+```
+openairinterface/openairinterface5g
+branch: develop
+commit: f8f769592a7030be88ede4bb5ca66fa1ca6a80e0
+integration: 2026.w40
+```
+
+This matters because the SNPN conclusions below are now tied to a concrete upstream source snapshot rather than generic OAI documentation.
+
+### 25.1 SIB1 construction anchor
+
+Current SIB1 is built in:
+
+```
+openair2/LAYER2/NR_MAC_gNB/nr_radio_config.c
+get_SIB1_NR(...)
+```
+
+The current function builds:
+
+```
+sib1->cellAccessRelatedInfo.plmn_IdentityInfoList
+```
+
+from `plmn_id_t`, MCC/MNC, TAC and cell identity.
+
+There is currently no HARP-required NPN/NID population in that construction path.
+
+Therefore the first broadcast patch should be anchored directly after the current PLMN identity construction, not scattered through scheduler code.
+
+Target structure:
+
+```
+SIB1
+  cellAccessRelatedInfo
+    plmn-IdentityInfoList        <- existing OAI path
+    npn-IdentityInfoList-r16     <- HARP Patch 2
+       NPN-IdentityInfo-r16
+         plmn-Identity
+         nid-r16 = 44-bit NID
+```
+
+Lab target remains:
+
+```
+MCC 999
+MNC 99
+NID 10000000001
+```
+
+### 25.2 Split the first SNPN gate
+
+The previous `PASS_V5G_SNPN_ID` gate is now split into two smaller gates.
+
+#### Gate A — broadcast only
+
+```
+PASS_V5G_SNPN_BROADCAST
+```
+
+Requirements:
+
+1. unmodified RFsim/gNB baseline still starts;
+2. generated SIB1 ASN.1 dump contains the configured PLMN+NID;
+3. NID is exactly 44 bits on the wire;
+4. changing the configured NID changes only the expected NPN identity field;
+5. ordinary PLMN SIB1 construction still works when SNPN mode is disabled.
+
+This gate does not require nrUE selection logic.
+
+#### Gate B — nrUE decode/select
+
+```
+PASS_V5G_SNPN_SELECT
+```
+
+Requirements:
+
+1. nrUE decodes the NPN identity from received SIB1;
+2. logs canonical PLMN+NID;
+3. configured target NID is selected;
+4. mismatched NID is rejected/ignored according to the experiment policy;
+5. selected NID is stored in UE serving-network context for later NAS/KDF work.
+
+This sequencing keeps RRC encoding bugs separate from UE selection bugs.
+
+### 25.3 F1AP remains a later boundary
+
+Current upstream code still contains an explicit unsupported path in:
+
+```
+openair2/F1AP/lib/f1ap_interface_management.c
+```
+
+for:
+
+```
+F1AP_ProtocolIE_ID_id_AvailableSNPN_ID_List
+```
+
+which triggers:
+
+```
+AvailableSNPN_ID_List is not supported
+```
+
+This confirms that a distributed CU/DU SNPN implementation is not currently turnkey.
+
+HARP should therefore use the monolithic/full-stack RFsim path for `PASS_V5G_SNPN_BROADCAST` and `PASS_V5G_SNPN_SELECT`.
+
+Do not make F1AP support a prerequisite for the first NID experiment.
+
+### 25.4 ASN.1 support versus runtime support
+
+The same upstream snapshot contains generated Rel-17 ASN.1 artifacts for:
+
+- `NR_NID-r16`;
+- `NR_NPN-IdentityInfoList-r16`;
+- `NR_SIB18-r17`;
+- other Release-17 RRC types.
+
+This is useful because HARP does not need to invent ASN.1 definitions for the first SIB1 experiment.
+
+But generated ASN.1 presence is not runtime support.
+
+The implementation rule remains:
+
+```
+ASN.1 type exists
+!=
+OAI populates it
+!=
+nrUE acts on it
+!=
+core understands it
+```
+
+Each transition requires its own gate.
+
+### 25.5 Revised minimum patch order from the verified source
+
+```
+Patch 1
+  common NID parser/formatter
+  - exactly 44 bits
+  - assignment-mode validation
+  - canonical hex/text representation
+  - unit tests
+
+Patch 2
+  gNB config fields:
+    snpn_enabled
+    snpn_nid
+
+  get_SIB1_NR():
+    populate npn-IdentityInfoList-r16
+
+  PASS_V5G_SNPN_BROADCAST
+
+Patch 3
+  nrUE SIB1 decode:
+    extract PLMN+NID
+    canonical log
+    target match
+
+  PASS_V5G_SNPN_SELECT
+
+Patch 4
+  persist selected NID in nrUE serving-network context
+
+Patch 5+
+  canonical SNPN SNN/KDF laboratory work
+```
+
+This is now the preferred implementation sequence.
