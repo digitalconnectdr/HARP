@@ -7,7 +7,18 @@ openairinterface/oai-cn5g-amf
 commit 5eedea557a3745b13ed9ec4bf29e6a28bd912574
 ```
 
-Current staged patches:
+These files are context blueprints rather than direct `git apply` unified diffs while the research branch evolves.
+
+Apply/check them with:
+
+```bash
+tools/oai_amf_snpn/apply_amf_blueprints.sh /path/to/oai-cn5g-amf --check
+tools/oai_amf_snpn/apply_amf_blueprints.sh /path/to/oai-cn5g-amf
+```
+
+The applicator requires exact unique anchors and runs `git diff --check` after writing.
+
+Current staged blueprints:
 
 ```
 0001-amf-optional-snpn-snn-formatter.patch
