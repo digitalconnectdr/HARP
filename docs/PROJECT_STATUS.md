@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-07  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `b63d61470d2777dc950a902c6bc704e4854f071d`
+**Baseline commit reviewed through:** `4b8d3fa3dc4478aa11d4ae5bb3ce9150a90b7ac5`
 
 ## 1. Product objective
 
@@ -592,6 +592,64 @@ PASS_V5G_SNPN_SNN
         |
 PASS_V5G_SNPN_KDF_LAB
 ```
+
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 20. Staged OAI / AMF patches — 2026-10-08
+
+OAI nrUE patch staging now exists under:
+
+```
+patches/oai/
+  0001-nr-ue-serving-network-baseline-refactor.patch
+  0002-nr-ue-snpn-serving-network-name.patch
+  README.md
+```
+
+Commits:
+
+- `1a4399a50da6f9d6055b3f19484c603d98287df2` — baseline serving-network identity refactor;
+- `c725a735b3c448686f145687b2c415950ed1cb05` — SNPN SNN formatter patch;
+- `e98842f5b2fa9b2fe0beaf5a1ee92ccd568869ac` — application order and validation policy.
+
+The first patch is intentionally PLMN-behavior-preserving. The second patch must not be applied until `PASS_V5G_SNN_REFACTOR_BASELINE` demonstrates no regression in ordinary PLMN RES*/K_AUSF/K_SEAF behavior.
+
+OAI AMF patch staging now exists under:
+
+```
+patches/oai-amf/
+  0001-amf-optional-snpn-snn-formatter.patch
+  README.md
+```
+
+AMF anchor:
+
+```
+openairinterface/oai-cn5g-amf
+develop
+5eedea557a3745b13ed9ec4bf29e6a28bd912574
+```
+
+Commits:
+
+- `bbfee71c745c694c4670b6f8842c633df3c82205` — initial formatter patch;
+- `c31cf69d3405122d1e1b28e05165f12c233cb76b` — required C++ includes;
+- `4b8d3fa3dc4478aa11d4ae5bb3ce9150a90b7ac5` — AMF staging notes.
+
+Important source finding:
+
+- current OAI AMF has only two known call sites for `get_serving_network_name()` in `amf_n1.cpp`;
+- the staged AMF patch does not change those call sites, so existing behavior remains PLMN-only until an explicit lab-NID source is added;
+- this allows formatter validation to remain separate from authentication behavior.
+
+ASN.1 caution:
+
+- the OAI tree contains generated NR RRC artifacts for `NR_NID-r16` and `NR_NPN-Identity*`;
+- the versioned ASN.1 source files inspected in the pinned tree do not expose those definitions literally under those names;
+- therefore HARP will not fabricate the SIB1 C field layout from assumptions;
+- the final SIB1 patch must be generated/verified against the actual asn1c output of a pinned OAI build environment.
 
 No GitHub Actions were used.
 No phone installation is required yet.
