@@ -1,0 +1,121 @@
+From HARP research branch
+Subject: [PATCH 1b/2] NR UE: expose and test serving-network-name formatter
+
+Depends on:
+  0001-nr-ue-serving-network-baseline-refactor.patch
+
+Upstream anchor:
+  openairinterface/openairinterface5g
+  f8f769592a7030be88ede4bb5ca66fa1ca6a80e0
+
+This adds a formatter-only regression gate:
+  PASS_V5G_SNN_FORMAT_BASELINE
+
+It does not claim KDF equivalence.
+
+diff --git a/openair3/NAS/NR_UE/nr_nas_msg.h b/openair3/NAS/NR_UE/nr_nas_msg.h
+--- a/openair3/NAS/NR_UE/nr_nas_msg.h
++++ b/openair3/NAS/NR_UE/nr_nas_msg.h
+@@
+ typedef struct {
+   plmn_id_t plmn;
+   bool has_nid;
+   uint64_t nid;
+ } nr_serving_network_id_t;
++
++bool nr_format_serving_network_name(
++    char *out,
++    size_t out_size,
++    const nr_serving_network_id_t *sn);
+ 
+ typedef struct {
+
+diff --git a/openair3/NAS/NR_UE/nr_nas_msg.c b/openair3/NAS/NR_UE/nr_nas_msg.c
+--- a/openair3/NAS/NR_UE/nr_nas_msg.c
++++ b/openair3/NAS/NR_UE/nr_nas_msg.c
+@@
+-static void servingNetworkName(uint8_t *msg, const nr_serving_network_id_t *sn)
++bool nr_format_serving_network_name(
++    char *out,
++    size_t out_size,
++    const nr_serving_network_id_t *sn)
+ {
++  if (!out || out_size == 0 || !sn)
++    return false;
++
+   // SNN-network-identifier in TS 24.501
+   // TS 24.501: If the MNC of the serving PLMN has two digits, then a zero is added at the beginning.
+-  int size = 64;
+-
+   const plmn_id_t *plmn_id = &sn->plmn;
+-  snprintf((char *)msg, size, "5G:mnc%03d.mcc%03d.3gppnetwork.org", plmn_id->mnc, plmn_id->mcc);
++  const int n = snprintf(
++      out,
++      out_size,
++      "5G:mnc%03d.mcc%03d.3gppnetwork.org",
++      plmn_id->mnc,
++      plmn_id->mcc);
++  return n > 0 && (size_t)n < out_size;
++}
++
++static void servingNetworkName(uint8_t *msg, const nr_serving_network_id_t *sn)
++{
++  AssertFatal(
++      nr_format_serving_network_name((char *)msg, 64, sn),
++      "Could not format serving network name");
+ }
+
+diff --git a/openair3/NAS/NR_UE/5GS/tests/nas_lib_test.c b/openair3/NAS/NR_UE/5GS/tests/nas_lib_test.c
+--- a/openair3/NAS/NR_UE/5GS/tests/nas_lib_test.c
++++ b/openair3/NAS/NR_UE/5GS/tests/nas_lib_test.c
+@@
+ #include "nr_nas_msg.h"
+ 
+ configmodule_interface_t *uniqCfg = NULL;
++
++static void test_serving_network_name_baseline(void)
++{
++  const nr_serving_network_id_t sn_2digit = {
++      .plmn = {.mcc = 234, .mnc = 15, .mnc_digit_length = 2},
++      .has_nid = false,
++      .nid = 0,
++  };
++  char out[80] = {0};
++  AssertFatal(
++      nr_format_serving_network_name(out, sizeof(out), &sn_2digit),
++      "SNN formatting failed");
++  AssertFatal(
++      strcmp(out, "5G:mnc015.mcc234.3gppnetwork.org") == 0,
++      "Unexpected two-digit-MNC SNN %s",
++      out);
++
++  const nr_serving_network_id_t sn_3digit = {
++      .plmn = {.mcc = 310, .mnc = 260, .mnc_digit_length = 3},
++      .has_nid = false,
++      .nid = 0,
++  };
++  memset(out, 0, sizeof(out));
++  AssertFatal(
++      nr_format_serving_network_name(out, sizeof(out), &sn_3digit),
++      "SNN formatting failed");
++  AssertFatal(
++      strcmp(out, "5G:mnc260.mcc310.3gppnetwork.org") == 0,
++      "Unexpected three-digit-MNC SNN %s",
++      out);
++
++  char too_small[8] = {0};
++  AssertFatal(
++      !nr_format_serving_network_name(
++          too_small, sizeof(too_small), &sn_2digit),
++      "Truncated SNN must be rejected");
++
++  printf("PASS_V5G_SNN_FORMAT_BASELINE\n");
++}
+@@
+ int main()
+ {
+@@
+   set_log(NAS, OAILOG_DEBUG);
+   // Tests list
++  test_serving_network_name_baseline();
+   test_regression_registration_accept();
