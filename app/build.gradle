@@ -30,3 +30,12 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 }
+
+
+def hevAar = file("libs/hev-socks5-tunnel.aar")
+
+dependencies {
+    if (hevAar.exists()) {
+        implementation files(hevAar)
+    }
+}
