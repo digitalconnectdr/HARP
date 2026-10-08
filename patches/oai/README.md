@@ -13,6 +13,7 @@ They are research patches stored in HARP so the work does not depend on GitHub A
 
 ```
 0001-nr-ue-serving-network-baseline-refactor.patch
+0001b-nr-ue-snn-formatter-baseline-test.patch
 0002-nr-ue-snpn-serving-network-name.patch
 ```
 
@@ -31,7 +32,32 @@ Gate:
 PASS_V5G_SNN_REFACTOR_BASELINE
 ```
 
-Do not apply patch 0002 until ordinary PLMN registration/KDF regression tests pass.
+Then apply `0001b` and require:
+
+```
+PASS_V5G_SNN_FORMAT_BASELINE
+```
+
+This proves the refactored formatter preserves the ordinary PLMN SNN and rejects truncation.
+
+Do not treat this as the full KDF baseline. `PASS_V5G_SNN_REFACTOR_BASELINE` still requires ordinary PLMN RES*/K_AUSF/K_SEAF equality.
+
+Do not apply patch 0002 until the formatter baseline passes and the KDF regression work is ready.
+
+### Patch 0001b
+
+Purpose:
+
+- expose the nrUE SNN formatter through `nr_nas_msg.h`;
+- exercise it through OAI's existing `nas_lib_test`;
+- prove two-digit and three-digit MNC behavior;
+- reject output truncation.
+
+Gate:
+
+```
+PASS_V5G_SNN_FORMAT_BASELINE
+```
 
 ### Patch 0002
 
