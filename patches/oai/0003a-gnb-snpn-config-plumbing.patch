@@ -1,0 +1,149 @@
+From HARP research branch
+Subject: [PATCH 3a] gNB: add lab SNPN configuration to MAC radio config
+
+Upstream anchor:
+  openairinterface/openairinterface5g
+  f8f769592a7030be88ede4bb5ca66fa1ca6a80e0
+
+This patch intentionally stops before ASN.1 construction. It provides a typed,
+validated SNPN config that reaches get_SIB1_NR() through nr_mac_config_t.
+
+Lab config:
+
+  gNBs = (
+    {
+      ...
+      snpn = {
+        enabled = "yes";
+        nid = "10000000001";
+      };
+    }
+  );
+
+diff --git a/openair2/LAYER2/NR_MAC_gNB/nr_mac_gNB.h b/openair2/LAYER2/NR_MAC_gNB/nr_mac_gNB.h
+--- a/openair2/LAYER2/NR_MAC_gNB/nr_mac_gNB.h
++++ b/openair2/LAYER2/NR_MAC_gNB/nr_mac_gNB.h
+@@
+ typedef enum nr_srs_type_e {
+   NO_SRS,
+   PERIODIC_SRS,
+   APERIODIC_SRS,
+ } nr_srs_type_t;
++
++typedef struct nr_snpn_config {
++  bool enabled;
++  uint64_t nid;  // lower 44 bits
++} nr_snpn_config_t;
+@@
+ typedef struct nr_mac_config_s {
+@@
+   nr_mac_timers_t timer_config;
++  nr_snpn_config_t snpn;
+   int num_dlharq;
+
+diff --git a/openair2/GNB_APP/gnb_paramdef.h b/openair2/GNB_APP/gnb_paramdef.h
+--- a/openair2/GNB_APP/gnb_paramdef.h
++++ b/openair2/GNB_APP/gnb_paramdef.h
+@@
+ /* PLMN ID configuration */
++
++/* HARP SNPN lab configuration */
++#define GNB_CONFIG_STRING_SNPN_CONFIG  "snpn"
++#define GNB_CONFIG_STRING_SNPN_ENABLED "enabled"
++#define GNB_CONFIG_STRING_SNPN_NID     "nid"
++
++#define GNB_SNPN_ENABLED_IDX 0
++#define GNB_SNPN_NID_IDX     1
++
++#define GNBSNPNPARAMS_DESC { \
++  {GNB_CONFIG_STRING_SNPN_ENABLED, "Enable SNPN SIB1 identity", 0, .strptr=NULL, .defstrval="no", TYPE_STRING, 0}, \
++  {GNB_CONFIG_STRING_SNPN_NID, "44-bit SNPN NID as exactly 11 hexadecimal digits", 0, .strptr=NULL, .defstrval="10000000001", TYPE_STRING, 0}, \
++}
+ 
+ #define GNB_CONFIG_STRING_PLMN_LIST                     "plmn_list"
+
+diff --git a/openair2/GNB_APP/gnb_config.c b/openair2/GNB_APP/gnb_config.c
+--- a/openair2/GNB_APP/gnb_config.c
++++ b/openair2/GNB_APP/gnb_config.c
+@@
+ static void config_spatial_stream_index(const paramdef_t *param, const size_t np, nr_mac_config_t *radio_config, int num_ru_ports)
+ {
+@@
+ }
++
++static nr_snpn_config_t get_snpn_config(void)
++{
++  char prefix[MAX_OPTNAME_SIZE * 2 + 16];
++  snprintf(prefix,
++           sizeof(prefix),
++           "%s.[0].%s",
++           GNB_CONFIG_STRING_GNB_LIST,
++           GNB_CONFIG_STRING_SNPN_CONFIG);
++
++  GET_PARAMS(SnpnParams, GNBSNPNPARAMS_DESC, prefix);
++
++  nr_snpn_config_t out = {0};
++  const char *enabled = *SnpnParams[GNB_SNPN_ENABLED_IDX].strptr;
++  out.enabled = enabled != NULL
++      && (strcasecmp(enabled, "yes") == 0
++          || strcasecmp(enabled, "true") == 0
++          || strcmp(enabled, "1") == 0);
++  if (!out.enabled)
++    return out;
++
++  const char *nid_text = *SnpnParams[GNB_SNPN_NID_IDX].strptr;
++  AssertFatal(nid_text != NULL, "SNPN enabled but nid is missing\n");
++  AssertFatal(strlen(nid_text) == 11,
++              "SNPN nid must contain exactly 11 hexadecimal digits, got '%s'\n",
++              nid_text);
++  AssertFatal(strspn(nid_text, "0123456789abcdefABCDEF") == 11,
++              "SNPN nid contains non-hexadecimal characters: '%s'\n",
++              nid_text);
++
++  errno = 0;
++  char *end = NULL;
++  unsigned long long parsed = strtoull(nid_text, &end, 16);
++  AssertFatal(errno != ERANGE && end != nid_text && *end == '\0',
++              "Unable to parse SNPN nid '%s'\n",
++              nid_text);
++  AssertFatal(parsed <= 0xFFFFFFFFFFFULL,
++              "SNPN nid exceeds 44 bits: '%s'\n",
++              nid_text);
++
++  out.nid = (uint64_t)parsed;
++  LOG_I(GNB_APP,
++        "HARP SNPN config enabled nid=%011llX bits=44\n",
++        (unsigned long long)out.nid);
++  return out;
++}
+ 
+ void RCconfig_nr_macrlc(configmodule_interface_t *cfg, nr_cell_sched_t **out_cell)
+ {
+@@
+   nr_mac_config_t config = {0};
++  config.snpn = get_snpn_config();
+   nr_pdsch_AntennaPorts_t *p = &config.pdsch_AntennaPorts;
+
+diff --git a/openair2/LAYER2/NR_MAC_gNB/nr_radio_config.c b/openair2/LAYER2/NR_MAC_gNB/nr_radio_config.c
+--- a/openair2/LAYER2/NR_MAC_gNB/nr_radio_config.c
++++ b/openair2/LAYER2/NR_MAC_gNB/nr_radio_config.c
+@@
+ NR_BCCH_DL_SCH_Message_t *get_SIB1_NR(const NR_ServingCellConfigCommon_t *scc,
+                                       const plmn_id_t *plmn,
+                                       uint64_t cellID,
+                                       int tac,
+                                       const nr_mac_config_t *mac_config)
+ {
+   AssertFatal(cellID < (1l << 36), "cellID must fit within 36 bits, but is %lu\n", cellID);
++
++  if (mac_config->snpn.enabled) {
++    AssertFatal(mac_config->snpn.nid <= 0xFFFFFFFFFFFULL,
++                "SNPN NID exceeds 44 bits\n");
++    LOG_I(NR_RRC,
++          "HARP_SNPN_CONFIG mcc=%d mnc=%d nid=%011llX bits=44\n",
++          plmn->mcc,
++          plmn->mnc,
++          (unsigned long long)mac_config->snpn.nid);
++  }
+ 
+   NR_BCCH_DL_SCH_Message_t *sib1_message = CALLOC(1,sizeof(NR_BCCH_DL_SCH_Message_t));
