@@ -399,7 +399,8 @@ final class HarpAwareController {
                 }
 
                 @Override public void onLost(Network n) {
-                    HarpLog.i("A: NDP lost");
+                    vpnSession = null;
+                    HarpLog.i("A: NDP lost; Stage2 VPN session invalidated");
                 }
             };
             cm.requestNetwork(req, netCb, main, NDP_TIMEOUT_MS);
