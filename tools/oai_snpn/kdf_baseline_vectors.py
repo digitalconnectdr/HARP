@@ -56,7 +56,55 @@ def main() -> None:
     print(f"KAUSF={hx(kausf)}")
     print(f"S_KSEAF={hx(s_kseaf)}")
     print(f"KSEAF={hx(kseaf)}")
+
+    def derive_for_snn(snn_text: str):
+        snn_bytes = snn_text.encode()
+        s_res_local = (
+            bytes([0x6B])
+            + snn_bytes
+            + l16(len(snn_bytes))
+            + rand
+            + l16(len(rand))
+            + res_input
+            + l16(len(res_input))
+        )
+        res_full_local = hmac.new(key, s_res_local, hashlib.sha256).digest()
+        res_star_local = res_full_local[16:]
+
+        s_kausf_local = (
+            bytes([0x6A])
+            + snn_bytes
+            + l16(len(snn_bytes))
+            + sqn
+            + l16(len(sqn))
+        )
+        kausf_local = hmac.new(key, s_kausf_local, hashlib.sha256).digest()
+        s_kseaf_local = bytes([0x6C]) + snn_bytes + l16(len(snn_bytes))
+        kseaf_local = hmac.new(
+            kausf_local, s_kseaf_local, hashlib.sha256
+        ).digest()
+        return res_star_local, kausf_local, kseaf_local
+
+    snpn_1 = "5G:mnc099.mcc999.3gppnetwork.org:10000000001"
+    snpn_2 = "5G:mnc099.mcc999.3gppnetwork.org:10000000002"
+    r1, a1, s1 = derive_for_snn(snpn_1)
+    r2, a2, s2 = derive_for_snn(snpn_2)
+
+    assert r1.hex() == "4a880d868e07cb3ad0a3ef39b21eebe5"
+    assert a1.hex() == "742c95dd9003e1c6c148236f5f8c9f9f2b89b02b2d898d989d4de00189ff5626"
+    assert s1.hex() == "a19ff0f63a0093d859f72233688e472a3283493bc2e852f030d9de7aaf9e93b4"
+    assert r1 != r2
+    assert a1 != a2
+    assert s1 != s2
+
+    print(f"SNPN1_RES_STAR={hx(r1)}")
+    print(f"SNPN1_KAUSF={hx(a1)}")
+    print(f"SNPN1_KSEAF={hx(s1)}")
+    print(f"SNPN2_RES_STAR={hx(r2)}")
+    print(f"SNPN2_KAUSF={hx(a2)}")
+    print(f"SNPN2_KSEAF={hx(s2)}")
     print("PASS_KDF_BASELINE_VECTOR_GENERATOR")
+    print("PASS_SNPN_KDF_VECTOR_GENERATOR")
 
 
 if __name__ == "__main__":
