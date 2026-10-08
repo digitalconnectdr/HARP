@@ -29,30 +29,38 @@ The current A↔B relay is a laboratory mechanism to prove transport and routing
 - Destination/peer admission policies.
 - Logging and a phone-test runbook.
 
-### Stage-2A source prepared but not activated
+### Stage-2 relay preflight wired into the Android runtime
 
-The repository already contains:
+After Stage-1 succeeds, the current controller now automatically performs a stronger preflight before any VPN is introduced:
 
-- `Stage2SessionCredentials`
-- `Stage2ControlProtocol`
+- B generates `Stage2SessionCredentials`.
+- Credentials are delivered over a control TCP connection inside the encrypted Wi-Fi Aware NDP.
+- A parses the session frame and acknowledges it.
+- B converts the same advertised `ServerSocket` into a persistent authenticated `Stage2RelayServer`.
+- The relay is limited to public web destinations on ports 80/443 and requires an IPv6 link-local Aware peer.
+- A opens a new SOCKS session using the ephemeral credentials and repeats the HTTPS proof.
+- Expected result: `PASS_STAGE2_RELAY_READY` on B and `PASS_STAGE2_RELAY` on A.
+
+The repository also contains the **Stage-2A VPN preparation**:
+
 - `Stage2TunnelConfig`
 - `ProtectedAwareBridge`
-- `Stage2RelayServer`
-- public-web SOCKS destination policy
+- `HevTunnelAdapter`
+- local verified download scripts for the official HEV Android AAR
 
-These pieces prepare the architecture:
+Target architecture:
 
 ```
 Apps / Chrome on A
   -> Android VpnService / TUN
-  -> tun2socks
+  -> HEV tun2socks
   -> local protected bridge
   -> Wi-Fi Aware
-  -> B SOCKS relay
+  -> persistent Stage2RelayServer on B
   -> Internet selected by B
 ```
 
-However, **Stage-2 is not yet wired into the Android UI/runtime**. The manifest does not declare a `VpnService`, the HEV tun2socks AAR is not part of the Android build, and the current UI is explicitly Stage-0/1.
+The remaining Stage-2 gap is therefore specifically the Android `VpnService` lifecycle and TUN integration. The VPN is not yet activated from the UI.
 
 ## 3. Validation status
 
@@ -76,12 +84,14 @@ app/build/outputs/apk/debug/app-debug.apk
 
 Still pending.
 
-No claim should yet be made that either of these has been physically demonstrated:
+No claim should yet be made that any of these has been physically demonstrated:
 
 - `PASS_STAGE0`
 - `PASS_STAGE1`
+- `PASS_STAGE2_RELAY_READY`
+- `PASS_STAGE2_RELAY`
 
-Therefore the current status is **source-complete for the Stage-0/1 experiment, but not device-validated**.
+Therefore the current status is **source-complete for the Stage-0/1/2 relay-preflight experiment, but not device-validated**.
 
 ## 4. GitHub Actions policy
 
@@ -118,9 +128,9 @@ Those are later architectural questions and must remain separate from this lab g
 
 ### Gate G1 — build
 
-Build the current Stage-0/1 APK locally without GitHub Actions.
+Build the current Stage-0/1/2 relay-preflight APK locally without GitHub Actions.
 
-Do not add HEV/tun2socks or VpnService before this build succeeds.
+The HEV AAR remains optional at this gate because the relay preflight does not need the VPN. Do not activate `VpnService` until this build succeeds.
 
 ### Gate G2 — install on both phones
 
@@ -128,24 +138,26 @@ Once the debug APK exists, install **the same APK on Phone A and Phone B**.
 
 This is the next point where both phones are required.
 
-### Gate G3 — physical Stage-0/1 test
+### Gate G3 — physical Stage-0/1/2 relay-preflight test
 
 - B: HARP RELAY + normal validated Internet.
 - A: HARP CLIENT + mobile data OFF + no other Internet path.
-- First require `PASS_STAGE0`.
+- Require `PASS_STAGE0`.
 - Then require `PASS_STAGE1`.
+- Then require `PASS_STAGE2_RELAY_READY` on B and `PASS_STAGE2_RELAY` on A.
 - Preserve the complete logs from both devices.
 
-If either stage fails, diagnose the transport before continuing.
+If any stage fails, diagnose that layer before introducing the VPN.
 
-### Gate G4 — Stage-2A
+### Gate G4 — Stage-2A VPN
 
 Only after G3 passes:
 
-- add Android `VpnService`;
-- integrate the selected HEV tun2socks AAR locally;
+- add and activate Android `VpnService` from a visible user action;
+- use foreground-service type `connectedDevice`;
+- integrate the verified HEV 2.18.0 Android AAR locally;
 - connect `ProtectedAwareBridge` to the actual VPN lifecycle;
-- activate the persistent `Stage2RelayServer` on B;
+- reuse the already proven persistent `Stage2RelayServer` on B;
 - route TCP-first traffic from normal apps/Chrome on A;
 - test HTTPS with A having no native Internet.
 
@@ -167,7 +179,7 @@ The blocker is **not protocol design**.
 
 The immediate blocker is:
 
-> no locally built APK and no two-phone Stage-0/1 measurement yet.
+> no locally built APK and no two-phone Stage-0/1/2 relay-preflight measurement yet.
 
 The long-term blocker remains different:
 
@@ -175,7 +187,7 @@ The long-term blocker remains different:
 
 ## 8. Decision rule
 
-Do not spend time optimizing multi-hop, FEC, battery, UI polish or commercial coverage until Stage-0/1 passes physically.
+Do not spend time optimizing multi-hop, FEC, battery, UI polish or commercial coverage until the Stage-0/1/2 relay preflight passes physically.
 
 Do not claim Stage-2 until normal Android app traffic on A crosses the VPN/TUN path.
 
