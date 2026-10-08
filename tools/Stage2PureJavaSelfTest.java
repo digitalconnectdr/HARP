@@ -55,10 +55,12 @@ public final class Stage2PureJavaSelfTest {
         expectControlRejected("HARP2 SESSION x y");
         expectControlRejected("HARP2 BAD anything");
         testPersistentRelay(random);
+        testHevAdapterContract();
 
         System.out.println("PASS_STAGE2_SESSION_CREDENTIALS_1000");
         System.out.println("PASS_STAGE2_CONTROL_PROTOCOL");
         System.out.println("PASS_STAGE2_PERSISTENT_RELAY");
+        System.out.println("PASS_STAGE2_HEV_JNI_CONTRACT");
         System.out.println("PASS_STAGE2_HEV_CONFIG");
         System.out.println("PASS_STAGE2_PURE_JAVA_SELFTEST");
     }
@@ -133,6 +135,19 @@ public final class Stage2PureJavaSelfTest {
         } finally {
             targetIo.shutdownNow();
         }
+    }
+
+    private static void testHevAdapterContract() throws Exception {
+        require(HevTunnelAdapter.isPackaged(), "HEV test binding packaged");
+        require(HevTunnelAdapter.start("fake.yml", 42), "HEV start");
+        require(HevTunnelAdapter.isRunning(), "HEV running");
+
+        long[] stats = HevTunnelAdapter.stats();
+        require(stats.length == 4, "HEV stats length");
+        require(stats[0] == 11L && stats[3] == 44L, "HEV stats values");
+
+        require(HevTunnelAdapter.stop(), "HEV stop");
+        require(!HevTunnelAdapter.isRunning(), "HEV stopped");
     }
 
     private static void expectControlRejected(String line) throws Exception {
