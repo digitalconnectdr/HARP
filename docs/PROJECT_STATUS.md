@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-07  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `4b8d3fa3dc4478aa11d4ae5bb3ce9150a90b7ac5`
+**Baseline commit reviewed through:** `e7548f10a7f01d8e3edd5ccf3924c9868f95335e`
 
 ## 1. Product objective
 
@@ -650,6 +650,50 @@ ASN.1 caution:
 - the versioned ASN.1 source files inspected in the pinned tree do not expose those definitions literally under those names;
 - therefore HARP will not fabricate the SIB1 C field layout from assumptions;
 - the final SIB1 patch must be generated/verified against the actual asn1c output of a pinned OAI build environment.
+
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 21. Patch-anchor validation + relay preflight fail-closed — 2026-10-08
+
+Static validation of the staged nrUE patch against the pinned OAI commit succeeded at all nine critical textual anchors:
+
+```
+PASS_OAI_PATCH_ANCHORS_9_OF_9
+```
+
+AMF SNN reference code was compiled locally as C++17 with `-Wall -Wextra -Werror` and produced:
+
+```
+PASS_AMF_SNN_VECTORS
+```
+
+The independent nrUE C formatter and AMF C++ formatter were cross-checked for the HARP lab identity and produced the same canonical string:
+
+```
+5G:mnc099.mcc999.3gppnetwork.org:10000000001
+PASS_UE_AMF_SNN_MATCH
+```
+
+Cross-check runner:
+
+```
+tools/oai_amf_snpn/run_ue_amf_snn_crosscheck.sh
+```
+
+Android relay lifecycle was hardened further:
+
+- `8febedd44cfe01323931a5cfa904499d562e91ae`: Stage0/Stage1/Stage2-control failures now close B's relay transport instead of returning with a live listener/NDP callback;
+- `25de98cc0d48833f5bf7a2cd6a9a7a05e06e0cae`: NDP setup exceptions also close transport, and the server reference is cleared in a `finally` path;
+- `closeRelayTransport()` now unregisters the Aware network callback, which prevents late `LinkProperties` callbacks from repopulating metadata after closure.
+
+Detailed validation record:
+
+- `docs/OAI_PATCH_STATIC_VALIDATION_2026-10-08.md`
+- commit `e7548f10a7f01d8e3edd5ccf3924c9868f95335e`.
+
+These are still static/source-level PASS markers, not OAI build/RFsim or phone-validation claims.
 
 No GitHub Actions were used.
 No phone installation is required yet.
