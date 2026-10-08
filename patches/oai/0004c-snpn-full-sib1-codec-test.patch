@@ -59,6 +59,7 @@ new file mode 100644
 +
 +#include <cstdint>
 +#include <cstdlib>
++#include <cstdio>
 +
 +extern "C" {
 +#include "common/ran_context.h"
@@ -70,7 +71,9 @@ new file mode 100644
 +#include "per_decoder.h"
 +}
 +
++extern "C" {
 +RAN_CONTEXT_t RC;
++}
 +
 +extern "C" {
 +void prepare_scc(NR_ServingCellConfigCommon_t *scc);
