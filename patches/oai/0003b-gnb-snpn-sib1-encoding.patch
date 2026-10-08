@@ -95,7 +95,10 @@ diff --git a/openair2/LAYER2/NR_MAC_gNB/nr_radio_config.c b/openair2/LAYER2/NR_M
 +  AssertFatal(nid <= 0xFFFFFFFFFFFULL, "SNPN NID exceeds 44 bits\n");
 +
 +  asn1cCalloc(
-+      sib1->cellAccessRelatedInfo.npn_IdentityInfoList_r16,
++      sib1->cellAccessRelatedInfo.ext1,
++      cell_access_ext1);
++  asn1cCalloc(
++      cell_access_ext1->npn_IdentityInfoList_r16,
 +      npn_info_list);
 +  asn1cSequenceAdd(
 +      npn_info_list->list,
