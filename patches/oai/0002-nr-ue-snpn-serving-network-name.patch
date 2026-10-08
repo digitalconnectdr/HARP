@@ -110,6 +110,87 @@ diff --git a/openair3/NAS/NR_UE/5GS/tests/nas_lib_test.c b/openair3/NAS/NR_UE/5G
 +
 +  printf("PASS_V5G_SNPN_SNN\n");
 +}
++
++static void test_serving_network_kdf_snpn(void)
++{
++  uint8_t ck[16];
++  uint8_t ik[16];
++  uint8_t rand[16];
++  uint8_t sqn[6];
++  uint8_t res_input[8];
++
++  for (int i = 0; i < 16; ++i) {
++    ck[i] = (uint8_t)i;
++    ik[i] = (uint8_t)(0x10 + i);
++    rand[i] = (uint8_t)(0x20 + i);
++  }
++  for (int i = 0; i < 6; ++i)
++    sqn[i] = (uint8_t)(0x30 + i);
++  for (int i = 0; i < 8; ++i)
++    res_input[i] = (uint8_t)(0x40 + i);
++
++  nr_serving_network_id_t sn = {
++      .plmn = {.mcc = 999, .mnc = 99, .mnc_digit_length = 2},
++      .has_nid = true,
++      .nid = 0x10000000001ULL,
++  };
++
++  const uint8_t expected_res_star[16] = {
++      0x4a, 0x88, 0x0d, 0x86, 0x8e, 0x07, 0xcb, 0x3a,
++      0xd0, 0xa3, 0xef, 0x39, 0xb2, 0x1e, 0xeb, 0xe5,
++  };
++  const uint8_t expected_kausf[32] = {
++      0x74, 0x2c, 0x95, 0xdd, 0x90, 0x03, 0xe1, 0xc6,
++      0xc1, 0x48, 0x23, 0x6f, 0x5f, 0x8c, 0x9f, 0x9f,
++      0x2b, 0x89, 0xb0, 0x2b, 0x2d, 0x89, 0x8d, 0x98,
++      0x9d, 0x4d, 0xe0, 0x01, 0x89, 0xff, 0x56, 0x26,
++  };
++  const uint8_t expected_kseaf[32] = {
++      0xa1, 0x9f, 0xf0, 0xf6, 0x3a, 0x00, 0x93, 0xd8,
++      0x59, 0xf7, 0x22, 0x33, 0x68, 0x8e, 0x47, 0x2a,
++      0x32, 0x83, 0x49, 0x3b, 0xc2, 0xe8, 0x52, 0xf0,
++      0x30, 0xd9, 0xde, 0x7a, 0xaf, 0x9e, 0x93, 0xb4,
++  };
++
++  uint8_t res_star[16] = {0};
++  uint8_t kausf[32] = {0};
++  uint8_t kseaf[32] = {0};
++
++  transferRES(ck, ik, res_input, rand, res_star, &sn);
++  derive_kausf(ck, ik, sqn, kausf, &sn);
++  derive_kseaf(kausf, kseaf, &sn);
++
++  AssertFatal(
++      memcmp(res_star, expected_res_star, sizeof(res_star)) == 0,
++      "SNPN RES* mismatch");
++  AssertFatal(
++      memcmp(kausf, expected_kausf, sizeof(kausf)) == 0,
++      "SNPN KAUSF mismatch");
++  AssertFatal(
++      memcmp(kseaf, expected_kseaf, sizeof(kseaf)) == 0,
++      "SNPN KSEAF mismatch");
++
++  uint8_t mismatch_res_star[16] = {0};
++  uint8_t mismatch_kausf[32] = {0};
++  uint8_t mismatch_kseaf[32] = {0};
++  sn.nid = 0x10000000002ULL;
++
++  transferRES(ck, ik, res_input, rand, mismatch_res_star, &sn);
++  derive_kausf(ck, ik, sqn, mismatch_kausf, &sn);
++  derive_kseaf(mismatch_kausf, mismatch_kseaf, &sn);
++
++  AssertFatal(
++      memcmp(res_star, mismatch_res_star, sizeof(res_star)) != 0,
++      "NID change did not change RES*");
++  AssertFatal(
++      memcmp(kausf, mismatch_kausf, sizeof(kausf)) != 0,
++      "NID change did not change KAUSF");
++  AssertFatal(
++      memcmp(kseaf, mismatch_kseaf, sizeof(kseaf)) != 0,
++      "NID change did not change KSEAF");
++
++  printf("PASS_V5G_SNPN_KDF_UE\n");
++}
 @@
  int main()
  {
@@ -117,4 +198,5 @@ diff --git a/openair3/NAS/NR_UE/5GS/tests/nas_lib_test.c b/openair3/NAS/NR_UE/5G
    // Tests list
    test_serving_network_name_baseline();
 +  test_serving_network_name_snpn();
++  test_serving_network_kdf_snpn();
    test_regression_registration_accept();
