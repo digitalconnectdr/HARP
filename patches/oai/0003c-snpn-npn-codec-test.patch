@@ -1,0 +1,148 @@
+From HARP research branch
+Subject: [PATCH 3c] RRC tests: add SNPN NPN identity codec round-trip
+
+Depends on generated NR RRC ASN.1 headers.
+
+Upstream anchor:
+  openairinterface/openairinterface5g
+  f8f769592a7030be88ede4bb5ca66fa1ca6a80e0
+
+Gate:
+  PASS_V5G_SNPN_NPN_CODEC
+
+This test deliberately targets NPN-IdentityInfoList-r16 directly. It validates
+the generated asn1c layout and the 44-bit NID encoding without requiring a full
+ServingCellConfigCommon/SIB1 fixture.
+
+diff --git a/openair2/RRC/NR/MESSAGES/tests/test_asn1_msg.cpp b/openair2/RRC/NR/MESSAGES/tests/test_asn1_msg.cpp
+--- a/openair2/RRC/NR/MESSAGES/tests/test_asn1_msg.cpp
++++ b/openair2/RRC/NR/MESSAGES/tests/test_asn1_msg.cpp
+@@
+ #include "NR_SIB4.h"
++#include "NR_NPN-IdentityInfoList-r16.h"
++#include "NR_NPN-IdentityInfo-r16.h"
++#include "NR_NPN-Identity-r16.h"
++#include "NR_NID-r16.h"
+@@
+ RAN_CONTEXT_t RC;
+@@
+ #endif
++
++static void fill_test_plmn(NR_PLMN_Identity_t *dst, int mcc_value, int mnc_value)
++{
++  dst->mcc = (NR_MCC_t *)calloc_or_fail(1, sizeof(*dst->mcc));
++  const int mcc_digits[] = {
++      (mcc_value / 100) % 10,
++      (mcc_value / 10) % 10,
++      mcc_value % 10,
++  };
++  for (int d : mcc_digits) {
++    auto *digit = (NR_MCC_MNC_Digit_t *)calloc_or_fail(1, sizeof(*digit));
++    *digit = d;
++    ASN_SEQUENCE_ADD(&dst->mcc->list, digit);
++  }
++
++  const int mnc_digits[] = {
++      (mnc_value / 10) % 10,
++      mnc_value % 10,
++  };
++  for (int d : mnc_digits) {
++    auto *digit = (NR_MCC_MNC_Digit_t *)calloc_or_fail(1, sizeof(*digit));
++    *digit = d;
++    ASN_SEQUENCE_ADD(&dst->mnc.list, digit);
++  }
++}
++
++static void fill_test_bit_string(BIT_STRING_t *dst, const uint8_t *bytes, size_t size, int bits_unused)
++{
++  dst->buf = (uint8_t *)calloc_or_fail(size, sizeof(*dst->buf));
++  memcpy(dst->buf, bytes, size);
++  dst->size = size;
++  dst->bits_unused = bits_unused;
++}
++
++TEST(nr_asn1, harp_snpn_npn_codec)
++{
++  NR_NPN_IdentityInfoList_r16_t original = {};
++
++  auto *info = (NR_NPN_IdentityInfo_r16_t *)calloc_or_fail(1, sizeof(*info));
++  ASSERT_EQ(ASN_SEQUENCE_ADD(&original.list, info), 0);
++
++  auto *identity = (NR_NPN_Identity_r16_t *)calloc_or_fail(1, sizeof(*identity));
++  ASSERT_EQ(ASN_SEQUENCE_ADD(&info->npn_IdentityList_r16.list, identity), 0);
++  identity->present = NR_NPN_Identity_r16_PR_snpn_r16;
++  identity->choice.snpn_r16 =
++      (struct NR_NPN_Identity_r16__snpn_r16 *)calloc_or_fail(
++          1, sizeof(*identity->choice.snpn_r16));
++
++  fill_test_plmn(&identity->choice.snpn_r16->plmn_Identity_r16, 999, 99);
++
++  auto *nid = (NR_NID_r16_t *)calloc_or_fail(1, sizeof(*nid));
++  const uint8_t expected_nid[] = {0x10, 0x00, 0x00, 0x00, 0x00, 0x10};
++  fill_test_bit_string(nid, expected_nid, sizeof(expected_nid), 4);
++  ASSERT_EQ(ASN_SEQUENCE_ADD(&identity->choice.snpn_r16->nid_List_r16.list, nid), 0);
++
++  const uint8_t tac[] = {0x00, 0x00, 0x01};
++  fill_test_bit_string(&info->trackingAreaCode_r16, tac, sizeof(tac), 0);
++
++  const uint8_t cell_id[] = {0x00, 0x00, 0x00, 0x00, 0x10};
++  fill_test_bit_string(&info->cellIdentity_r16, cell_id, sizeof(cell_id), 4);
++  info->cellReservedForOperatorUse_r16 =
++      NR_NPN_IdentityInfo_r16__cellReservedForOperatorUse_r16_notReserved;
++
++  void *encoded = nullptr;
++  const int encoded_len = uper_encode_to_new_buffer(
++      &asn_DEF_NR_NPN_IdentityInfoList_r16,
++      nullptr,
++      &original,
++      &encoded);
++  ASSERT_GT(encoded_len, 0);
++  ASSERT_NE(encoded, nullptr);
++
++  NR_NPN_IdentityInfoList_r16_t *decoded = nullptr;
++  const asn_dec_rval_t dec = uper_decode(
++      nullptr,
++      &asn_DEF_NR_NPN_IdentityInfoList_r16,
++      (void **)&decoded,
++      encoded,
++      encoded_len,
++      0,
++      0);
++  ASSERT_EQ(dec.code, RC_OK);
++  ASSERT_NE(decoded, nullptr);
++  ASSERT_EQ(decoded->list.count, 1);
++
++  const NR_NPN_IdentityInfo_r16_t *decoded_info = decoded->list.array[0];
++  ASSERT_EQ(decoded_info->npn_IdentityList_r16.list.count, 1);
++  const NR_NPN_Identity_r16_t *decoded_identity =
++      decoded_info->npn_IdentityList_r16.list.array[0];
++  ASSERT_EQ(decoded_identity->present, NR_NPN_Identity_r16_PR_snpn_r16);
++  ASSERT_NE(decoded_identity->choice.snpn_r16, nullptr);
++  ASSERT_EQ(decoded_identity->choice.snpn_r16->nid_List_r16.list.count, 1);
++
++  const NR_NID_r16_t *decoded_nid =
++      decoded_identity->choice.snpn_r16->nid_List_r16.list.array[0];
++  ASSERT_EQ(decoded_nid->size, sizeof(expected_nid));
++  ASSERT_EQ(decoded_nid->bits_unused, 4);
++  ASSERT_EQ(memcmp(decoded_nid->buf, expected_nid, sizeof(expected_nid)), 0);
++
++  ASSERT_NE(decoded_identity->choice.snpn_r16->plmn_Identity_r16.mcc, nullptr);
++  ASSERT_EQ(decoded_identity->choice.snpn_r16->plmn_Identity_r16.mcc->list.count, 3);
++  ASSERT_EQ(*decoded_identity->choice.snpn_r16->plmn_Identity_r16.mcc->list.array[0], 9);
++  ASSERT_EQ(*decoded_identity->choice.snpn_r16->plmn_Identity_r16.mcc->list.array[1], 9);
++  ASSERT_EQ(*decoded_identity->choice.snpn_r16->plmn_Identity_r16.mcc->list.array[2], 9);
++  ASSERT_EQ(decoded_identity->choice.snpn_r16->plmn_Identity_r16.mnc.list.count, 2);
++  ASSERT_EQ(*decoded_identity->choice.snpn_r16->plmn_Identity_r16.mnc.list.array[0], 9);
++  ASSERT_EQ(*decoded_identity->choice.snpn_r16->plmn_Identity_r16.mnc.list.array[1], 9);
++
++  ASSERT_EQ(decoded_info->trackingAreaCode_r16.size, sizeof(tac));
++  ASSERT_EQ(memcmp(decoded_info->trackingAreaCode_r16.buf, tac, sizeof(tac)), 0);
++  ASSERT_EQ(decoded_info->cellIdentity_r16.size, sizeof(cell_id));
++  ASSERT_EQ(decoded_info->cellIdentity_r16.bits_unused, 4);
++
++  printf("PASS_V5G_SNPN_NPN_CODEC\n");
++
++  free(encoded);
++  ASN_STRUCT_FREE(asn_DEF_NR_NPN_IdentityInfoList_r16, decoded);
++  ASN_STRUCT_FREE_CONTENTS_ONLY(asn_DEF_NR_NPN_IdentityInfoList_r16, &original);
++}
