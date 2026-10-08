@@ -1,0 +1,125 @@
+From HARP research branch
+Subject: [PATCH 2/2] AMF: add optional lab SNPN NID configuration
+
+Depends on:
+  0001-amf-optional-snpn-snn-formatter.patch
+
+Upstream anchor:
+  openairinterface/oai-cn5g-amf
+  5eedea557a3745b13ed9ec4bf29e6a28bd912574
+
+This is a LAB-ONLY bridge for PASS_V5G_SNPN_KDF_LAB.
+It intentionally uses one AMF-global NID until standards-compliant NID
+transport is wired into the serving-network context.
+
+diff --git a/src/amf-app/amf_config.hpp b/src/amf-app/amf_config.hpp
+--- a/src/amf-app/amf_config.hpp
++++ b/src/amf-app/amf_config.hpp
+@@
+ constexpr auto AMF_CONFIG_DEFAULT_DNN             = "default_dnn";
+ constexpr auto AMF_CONFIG_DEFAULT_DNN_LABEL       = "Default DNN";
++constexpr auto AMF_CONFIG_SNPN_NID                = "snpn_nid";
++constexpr auto AMF_CONFIG_SNPN_NID_LABEL          = "SNPN NID (lab)";
++constexpr auto AMF_CONFIG_SNPN_NID_DEFAULT_VALUE  = "";
+@@
+   int_config_value m_sctp_ttl;
+   string_config_value m_default_dnn;
++  string_config_value m_snpn_nid;
+@@
+   [[nodiscard]] const uint32_t get_sctp_ttl() const;
+   [[nodiscard]] const std::string get_default_dnn() const;
++  [[nodiscard]] const std::string get_snpn_nid() const;
+@@
+   std::string default_dnn;
++  std::optional<uint64_t> snpn_nid;
+ };
+
+diff --git a/src/amf-app/amf_config.cpp b/src/amf-app/amf_config.cpp
+--- a/src/amf-app/amf_config.cpp
++++ b/src/amf-app/amf_config.cpp
+@@
+   m_default_dnn =
+       string_config_value(AMF_CONFIG_DEFAULT_DNN, AMF_CONFIG_DEFAULT_DNN_VALUE);
++  m_snpn_nid =
++      string_config_value(AMF_CONFIG_SNPN_NID, AMF_CONFIG_SNPN_NID_DEFAULT_VALUE);
+@@
+     if (key == AMF_CONFIG_DEFAULT_DNN) {
+       m_default_dnn.from_yaml(elem.second);
+     }
++
++    if (key == AMF_CONFIG_SNPN_NID) {
++      m_snpn_nid.from_yaml(elem.second);
++    }
+@@
+   out.append(inner_indent)
+       .append(fmt::format(
+           BASE_FORMATTER, OUTER_LIST_ELEM, AMF_CONFIG_DEFAULT_DNN_LABEL,
+           inner_width, m_default_dnn.get_value()))
+       .append("(ms)");
++
++  if (!m_snpn_nid.get_value().empty()) {
++    out.append(inner_indent)
++        .append(fmt::format(
++            BASE_FORMATTER, OUTER_LIST_ELEM, AMF_CONFIG_SNPN_NID_LABEL,
++            inner_width, m_snpn_nid.get_value()));
++  }
+@@
+ const std::string amf::get_default_dnn() const {
+   return m_default_dnn.get_value();
+ }
++
++//------------------------------------------------------------------------------
++const std::string amf::get_snpn_nid() const {
++  return m_snpn_nid.get_value();
++}
+@@
+   sctp_ttl    = amf_local->get_sctp_ttl();
+   default_dnn = amf_local->get_default_dnn();
++
++  const std::string snpn_nid_text = amf_local->get_snpn_nid();
++  snpn_nid.reset();
++  if (!snpn_nid_text.empty()) {
++    if (snpn_nid_text.size() != 11
++        || snpn_nid_text.find_first_not_of("0123456789abcdefABCDEF")
++            != std::string::npos) {
++      throw std::invalid_argument(
++          "amf.snpn_nid must be exactly 11 hexadecimal digits");
++    }
++    const uint64_t parsed = std::stoull(snpn_nid_text, nullptr, 16);
++    if (parsed > 0xFFFFFFFFFFFULL) {
++      throw std::invalid_argument("amf.snpn_nid exceeds 44 bits");
++    }
++    snpn_nid = parsed;
++    Logger::config().info(
++        "- SNPN NID (lab) ........: %011llX",
++        (unsigned long long) parsed);
++  }
+
+diff --git a/src/amf-app/amf_n1.cpp b/src/amf-app/amf_n1.cpp
+--- a/src/amf-app/amf_n1.cpp
++++ b/src/amf-app/amf_n1.cpp
+@@
+-  std::string snn =
+-      amf_conv::get_serving_network_name(nas_data_ind.mnc, nas_data_ind.mcc);
++  std::string snn = amf_cfg->snpn_nid.has_value()
++      ? amf_conv::get_serving_network_name(
++            nas_data_ind.mnc, nas_data_ind.mcc, amf_cfg->snpn_nid.value())
++      : amf_conv::get_serving_network_name(
++            nas_data_ind.mnc, nas_data_ind.mcc);
+@@
+-        std::string snn =
+-            amf_conv::get_serving_network_name(plmn.mnc, plmn.mcc);
++        std::string snn = amf_cfg->snpn_nid.has_value()
++            ? amf_conv::get_serving_network_name(
++                  plmn.mnc, plmn.mcc, amf_cfg->snpn_nid.value())
++            : amf_conv::get_serving_network_name(plmn.mnc, plmn.mcc);
+
+diff --git a/etc/config.yaml b/etc/config.yaml
+--- a/etc/config.yaml
++++ b/etc/config.yaml
+@@
+ amf:
+   amf_name: "OAI-AMF"
++  # HARP lab-only SNPN identity. Leave absent/empty for ordinary PLMN behavior.
++  # snpn_nid: "10000000001"
+   # This really depends on if we want to keep the "mini" version or not
