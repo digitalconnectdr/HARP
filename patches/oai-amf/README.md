@@ -70,3 +70,12 @@ The location is chosen deliberately before `nc->serving_network` is stored, so t
 - external AUSF through `AuthenticationInfo.servingNetworkName`;
 - local simple-scenario UDM/AUSF emulation;
 - local `derive_kseaf()`.
+
+
+Runtime evidence added to both AMF SNN construction sites:
+
+```
+HARP_SNPN_AMF_SNN 5G:mnc099.mcc999.3gppnetwork.org:10000000001
+```
+
+This log must appear before the authentication path is considered aligned with the UE. It is an observability marker only; it does not itself prove successful SNPN authentication.
