@@ -1,0 +1,167 @@
+From HARP research branch
+Subject: [PATCH 4c] NR RRC tests: full SIB1 SNPN encode/decode gate
+
+Depends on:
+  0003a-gnb-snpn-config-plumbing.patch
+  0003b-gnb-snpn-sib1-encoding.patch
+  0003c-snpn-npn-codec-test.patch
+  0004b-nr-ue-snpn-selection-unit-test.patch
+
+Upstream anchor:
+  openairinterface/openairinterface5g
+  f8f769592a7030be88ede4bb5ca66fa1ca6a80e0
+
+Gate:
+  PASS_V5G_SNPN_SIB1_CODEC
+
+This uses the same SCC fixture path as OAI PHY simulations:
+  prepare_scc()
+  fill_scc_sim()
+  fix_scc()
+
+Then:
+  get_SIB1_NR()
+  encode_SIB_NR()
+  uper_decode()
+  nr_sib1_find_snpn()
+
+It also verifies that disabling SNPN leaves the NPN identity list absent.
+
+diff --git a/openair2/RRC/NR/MESSAGES/tests/CMakeLists.txt b/openair2/RRC/NR/MESSAGES/tests/CMakeLists.txt
+--- a/openair2/RRC/NR/MESSAGES/tests/CMakeLists.txt
++++ b/openair2/RRC/NR/MESSAGES/tests/CMakeLists.txt
+@@
+-target_link_libraries(test_asn1_msg PRIVATE nr_rrc SECURITY minimal_lib GTest::gtest UTIL nr_common)
++target_link_libraries(test_asn1_msg PRIVATE nr_rrc L2_NR SECURITY minimal_lib GTest::gtest UTIL nr_common)
+
+diff --git a/openair2/RRC/NR/MESSAGES/tests/test_asn1_msg.cpp b/openair2/RRC/NR/MESSAGES/tests/test_asn1_msg.cpp
+--- a/openair2/RRC/NR/MESSAGES/tests/test_asn1_msg.cpp
++++ b/openair2/RRC/NR/MESSAGES/tests/test_asn1_msg.cpp
+@@
+ #include "openair3/UTILS/conversions.h"
++#include "openair2/LAYER2/NR_MAC_gNB/nr_radio_config.h"
++
++void prepare_scc(NR_ServingCellConfigCommon_t *scc);
++void fill_scc_sim(
++    NR_ServingCellConfigCommon_t *scc,
++    uint64_t *ssb_bitmap,
++    int N_RB_DL,
++    int N_RB_UL,
++    int mu_dl,
++    int mu_ul);
++void fix_scc(NR_ServingCellConfigCommon_t *scc, uint64_t ssbmap);
++
+ RAN_CONTEXT_t RC;
+@@
+ TEST(nr_asn1, harp_snpn_selection)
+ {
+@@
+   printf("PASS_V5G_SNPN_SELECT_UNIT\n");
+   ASN_STRUCT_FREE_CONTENTS_ONLY(asn_DEF_NR_SIB1, &sib1);
+ }
++
++static nr_mac_config_t harp_sib1_test_config(bool snpn_enabled, uint64_t nid)
++{
++  nr_mac_config_t config = {};
++  config.timer_config.t300 = 1000;
++  config.timer_config.t301 = 1000;
++  config.timer_config.t310 = 1000;
++  config.timer_config.n310 = 1;
++  config.timer_config.t311 = 30000;
++  config.timer_config.n311 = 1;
++  config.timer_config.t319 = 1000;
++  config.snpn.enabled = snpn_enabled;
++  config.snpn.nid = nid;
++  return config;
++}
++
++static NR_BCCH_DL_SCH_Message_t *harp_build_and_decode_sib1(
++    bool snpn_enabled,
++    uint64_t nid)
++{
++  NR_ServingCellConfigCommon_t *scc =
++      (NR_ServingCellConfigCommon_t *)calloc_or_fail(1, sizeof(*scc));
++  prepare_scc(scc);
++  uint64_t ssb_bitmap = 1;
++  fill_scc_sim(scc, &ssb_bitmap, 106, 106, 1, 1);
++  fix_scc(scc, ssb_bitmap);
++
++  const plmn_id_t plmn = {
++      .mcc = 999,
++      .mnc = 99,
++      .mnc_digit_length = 2,
++  };
++  const nr_mac_config_t config =
++      harp_sib1_test_config(snpn_enabled, nid);
++
++  NR_BCCH_DL_SCH_Message_t *built =
++      get_SIB1_NR(scc, &plmn, 0x12345, 1, &config);
++  EXPECT_NE(built, nullptr);
++
++  uint8_t encoded[4096] = {0};
++  const int encoded_len =
++      encode_SIB_NR(built, encoded, sizeof(encoded));
++  EXPECT_GT(encoded_len, 0);
++
++  NR_BCCH_DL_SCH_Message_t *decoded = nullptr;
++  const asn_dec_rval_t dec = uper_decode(
++      nullptr,
++      &asn_DEF_NR_BCCH_DL_SCH_Message,
++      (void **)&decoded,
++      encoded,
++      encoded_len,
++      0,
++      0);
++  EXPECT_EQ(dec.code, RC_OK);
++  EXPECT_NE(decoded, nullptr);
++
++  free_SIB1_NR(built);
++  ASN_STRUCT_FREE(asn_DEF_NR_ServingCellConfigCommon, scc);
++  return decoded;
++}
++
++TEST(nr_asn1, harp_snpn_full_sib1_codec)
++{
++  NR_BCCH_DL_SCH_Message_t *decoded =
++      harp_build_and_decode_sib1(true, 0x10000000001ULL);
++  ASSERT_NE(decoded, nullptr);
++  ASSERT_EQ(decoded->message.present, NR_BCCH_DL_SCH_MessageType_PR_c1);
++  ASSERT_NE(decoded->message.choice.c1, nullptr);
++  ASSERT_EQ(
++      decoded->message.choice.c1->present,
++      NR_BCCH_DL_SCH_MessageType__c1_PR_systemInformationBlockType1);
++
++  const NR_SIB1_t *sib1 =
++      decoded->message.choice.c1->choice.systemInformationBlockType1;
++  ASSERT_NE(sib1, nullptr);
++
++  const plmn_id_t target = {
++      .mcc = 999,
++      .mnc = 99,
++      .mnc_digit_length = 2,
++  };
++  plmn_id_t selected = {};
++  uint64_t selected_nid = 0;
++  ASSERT_TRUE(nr_sib1_find_snpn(
++      sib1,
++      &target,
++      0x10000000001ULL,
++      &selected,
++      &selected_nid));
++  EXPECT_EQ(selected_nid, 0x10000000001ULL);
++
++  ASN_STRUCT_FREE(asn_DEF_NR_BCCH_DL_SCH_Message, decoded);
++
++  decoded = harp_build_and_decode_sib1(false, 0);
++  ASSERT_NE(decoded, nullptr);
++  ASSERT_EQ(decoded->message.present, NR_BCCH_DL_SCH_MessageType_PR_c1);
++  ASSERT_NE(decoded->message.choice.c1, nullptr);
++  sib1 = decoded->message.choice.c1->choice.systemInformationBlockType1;
++  ASSERT_NE(sib1, nullptr);
++  EXPECT_TRUE(
++      sib1->cellAccessRelatedInfo.ext1 == nullptr
++      || sib1->cellAccessRelatedInfo.ext1->npn_IdentityInfoList_r16 == nullptr);
++
++  printf("PASS_V5G_SNPN_SIB1_CODEC\n");
++  ASN_STRUCT_FREE(asn_DEF_NR_BCCH_DL_SCH_Message, decoded);
++}
