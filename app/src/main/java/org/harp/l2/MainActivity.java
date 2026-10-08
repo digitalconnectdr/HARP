@@ -151,12 +151,14 @@ public final class MainActivity extends Activity implements HarpLog.Listener {
     }
 
     private void resetController() {
-        stopService(new Intent(this, HarpVpnService.class));
         resetControllerSilently();
         HarpLog.i("Sesiones detenidas");
     }
 
     private void resetControllerSilently() {
+        // Resetting Aware invalidates the transport used by Stage2A. Stop any
+        // active VPN first so the TUN cannot outlive its relay session.
+        stopService(new Intent(this, HarpVpnService.class));
         controller = HarpRuntime.reset(this);
     }
 
