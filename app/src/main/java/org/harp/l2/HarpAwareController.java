@@ -289,6 +289,7 @@ final class HarpAwareController {
             } catch (Exception e) {
                 HarpLog.i("B: NDP/server ERROR " + e.getClass().getSimpleName()
                         + ": " + e.getMessage());
+                closeRelayTransport();
             }
         });
     }
@@ -705,10 +706,11 @@ final class HarpAwareController {
             } else if (server != null) {
                 server.close();
             }
-            server = null;
         } catch (Exception e) {
             HarpLog.i("B: relay transport close warning "
                     + e.getClass().getSimpleName() + ": " + e.getMessage());
+        } finally {
+            server = null;
         }
     }
 
