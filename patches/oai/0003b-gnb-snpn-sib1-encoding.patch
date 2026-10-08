@@ -19,9 +19,16 @@ ASN.1 grammar verified from the exact Git blob:
               -> nid-List-r16
                 -> NID-r16 BIT STRING (SIZE(44))
 
-The generated C spellings below follow OAI's asn1c -fcompound-names convention.
-This patch must still pass a real OAI generated-header compile before the
-PASS_V5G_SNPN_SIB1_CODEC gate may be claimed.
+The generated C spellings below were cross-checked against a public OAI Rel-16
+build artifact produced with asn1c -fcompound-names. In particular:
+- npn_IdentityInfoList_r16 is under CellAccessRelatedInfo.ext1;
+- choice.snpn_r16 is a pointer;
+- NR_NPN_Identity_r16_PR_snpn_r16 and the notReserved enum names were confirmed.
+
+Rel-17.3.0 keeps the same first extension group in the ASN.1 grammar, with the
+r17 SNPN access-info list in a later extension group. A real build against the
+pinned OAI generated headers is still required before claiming
+PASS_V5G_SNPN_SIB1_CODEC.
 
 diff --git a/openair2/LAYER2/NR_MAC_gNB/nr_radio_config.c b/openair2/LAYER2/NR_MAC_gNB/nr_radio_config.c
 --- a/openair2/LAYER2/NR_MAC_gNB/nr_radio_config.c
@@ -100,13 +107,12 @@ diff --git a/openair2/LAYER2/NR_MAC_gNB/nr_radio_config.c b/openair2/LAYER2/NR_M
 +      struct NR_NPN_Identity_r16,
 +      npn_identity);
 +  npn_identity->present = NR_NPN_Identity_r16_PR_snpn_r16;
++  asn1cCalloc(npn_identity->choice.snpn_r16, snpn);
 +
-+  fill_plmn_identity(
-+      &npn_identity->choice.snpn_r16.plmn_Identity_r16,
-+      plmn);
++  fill_plmn_identity(&snpn->plmn_Identity_r16, plmn);
 +
 +  asn1cSequenceAdd(
-+      npn_identity->choice.snpn_r16.nid_List_r16.list,
++      snpn->nid_List_r16.list,
 +      NR_NID_r16_t,
 +      nid_ie);
 +  AssertFatal(
@@ -115,7 +121,8 @@ diff --git a/openair2/LAYER2/NR_MAC_gNB/nr_radio_config.c b/openair2/LAYER2/NR_M
 +
 +  fill_tracking_area_code(&npn_info->trackingAreaCode_r16, tac);
 +  NR_CELL_ID_TO_BIT_STRING(cell_id, &npn_info->cellIdentity_r16);
-+  npn_info->cellReservedForOperatorUse_r16 = 1; // notReserved
++  npn_info->cellReservedForOperatorUse_r16 =
++      NR_NPN_IdentityInfo_r16__cellReservedForOperatorUse_r16_notReserved;
 +
 +  LOG_I(
 +      NR_RRC,
