@@ -55,11 +55,13 @@ public final class Stage2PureJavaSelfTest {
         expectControlRejected("HARP2 SESSION x y");
         expectControlRejected("HARP2 BAD anything");
         testPersistentRelay(random);
+        testRejectedPeerDoesNotKillRelay(random);
         testHevAdapterContract();
 
         System.out.println("PASS_STAGE2_SESSION_CREDENTIALS_1000");
         System.out.println("PASS_STAGE2_CONTROL_PROTOCOL");
         System.out.println("PASS_STAGE2_PERSISTENT_RELAY");
+        System.out.println("PASS_STAGE2_REJECTED_PEER_RECOVERY");
         System.out.println("PASS_STAGE2_HEV_JNI_CONTRACT");
         System.out.println("PASS_STAGE2_HEV_CONFIG");
         System.out.println("PASS_STAGE2_PURE_JAVA_SELFTEST");
@@ -132,6 +134,96 @@ public final class Stage2PureJavaSelfTest {
             }
 
             targetFuture.get(5, TimeUnit.SECONDS);
+        } finally {
+            targetIo.shutdownNow();
+        }
+    }
+
+    private static void testRejectedPeerDoesNotKillRelay(
+            SecureRandom random) throws Exception {
+        ExecutorService targetIo = Executors.newSingleThreadExecutor();
+        java.util.concurrent.atomic.AtomicInteger admissions =
+                new java.util.concurrent.atomic.AtomicInteger();
+
+        try (ServerSocket target =
+                     new ServerSocket(0, 10, InetAddress.getLoopbackAddress());
+             ServerSocket relayListener =
+                     new ServerSocket(0, 10, InetAddress.getLoopbackAddress())) {
+
+            Future<?> targetFuture = targetIo.submit(() -> {
+                try (Socket socket = target.accept()) {
+                    byte[] request = socket.getInputStream().readNBytes(4);
+                    if (!"PING".equals(
+                            new String(request, StandardCharsets.US_ASCII))) {
+                        throw new AssertionError("recovery target payload");
+                    }
+                    socket.getOutputStream().write(
+                            "PONG".getBytes(StandardCharsets.US_ASCII));
+                    socket.shutdownOutput();
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+
+            Stage2SessionCredentials credentials =
+                    Stage2SessionCredentials.create(random);
+
+            SocketPeerPolicy rejectFirst = socket -> {
+                if (admissions.getAndIncrement() == 0) {
+                    throw new IOException("intentional first-peer rejection");
+                }
+                if (!socket.getInetAddress().isLoopbackAddress()) {
+                    throw new IOException("expected loopback test peer");
+                }
+            };
+
+            try (Stage2RelayServer relay = new Stage2RelayServer(
+                    relayListener,
+                    credentials,
+                    SocksPolicies.exactTargetForTest(
+                            "localhost", target.getLocalPort()),
+                    host -> new InetAddress[]{InetAddress.getLoopbackAddress()},
+                    SocketFactory.getDefault(),
+                    rejectFirst,
+                    4,
+                    ignored -> {})) {
+                relay.start();
+
+                try (Socket rejected = new Socket(
+                        InetAddress.getLoopbackAddress(), relay.port())) {
+                    rejected.setSoTimeout(1_000);
+                    try {
+                        rejected.getInputStream().read();
+                    } catch (IOException expected) {
+                        // The first peer is intentionally rejected.
+                    }
+                }
+
+                try (Socket client = new Socket(
+                        InetAddress.getLoopbackAddress(), relay.port())) {
+                    client.setSoTimeout(5_000);
+                    MiniSocks5.clientConnect(
+                            client,
+                            credentials.username(),
+                            credentials.password(),
+                            "localhost",
+                            target.getLocalPort());
+                    client.getOutputStream().write(
+                            "PING".getBytes(StandardCharsets.US_ASCII));
+                    client.shutdownOutput();
+
+                    String got = new String(
+                            client.getInputStream().readNBytes(4),
+                            StandardCharsets.US_ASCII);
+                    if (!"PONG".equals(got)) {
+                        throw new AssertionError(
+                                "relay did not recover after rejected peer: " + got);
+                    }
+                }
+            }
+
+            targetFuture.get(5, TimeUnit.SECONDS);
+            require(admissions.get() >= 2, "peer policy invoked twice");
         } finally {
             targetIo.shutdownNow();
         }
