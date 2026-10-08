@@ -55,9 +55,17 @@ Este tercer gate valida la base del relay persistente que después usará `VpnSe
 5. NDP debe mostrar:
    ```
    B: NDP available ...
+   B: Aware interface name=... index=...
    A: NDP available ndp_ms=...
    A: peer=/fe80::...:<port>
    ```
+
+   En cada socket aceptado por B, registrar también:
+   ```
+   B: peer scope accepted expectedIf=... expectedIndex=... remoteScope=... localScope=...
+   ```
+
+   Si Android entrega scope explícito y apunta a otra interfaz, HARP debe rechazar ese peer. Si ambos scopes llegan en cero, conservar el log: la primera prueba física determinará si podemos hacer esta comprobación estricta en esos modelos.
 6. Stage-0 debe terminar con:
    ```
    PASS_STAGE0
@@ -170,3 +178,43 @@ Durante la prueba Stage-2A, si se apaga Wi-Fi/Aware, se pierde el NDP o se reini
 - una prueba Stage-2 que termine tarde no debe volver a publicar una sesión VPN obsoleta.
 
 Después de una pérdida de transporte, repetir el preflight completo antes de activar de nuevo el VPN.
+
+
+## Prueba negativa adicional — pérdida del upstream de B
+
+Después de obtener `PASS_STAGE2_RELAY_READY` y `PASS_STAGE2_RELAY`, pero antes de activar Stage-2A VPN:
+
+1. identificar qué upstream eligió B en el log;
+2. desconectar específicamente esa salida (por ejemplo, apagar el Wi-Fi de infraestructura de B si ésa fue la red elegida);
+3. no tocar Wi-Fi Aware en A/B;
+4. observar B.
+
+Resultado esperado:
+
+```
+B: Stage2 upstream lost ...
+```
+
+o:
+
+```
+B: Stage2 upstream lost VALIDATED/INTERNET ...
+```
+
+seguido por:
+
+```
+Stage2 relay stopped
+```
+
+La sesión no debe migrar silenciosamente a otra red de B. El PoC actual usa semántica fail-closed: después de perder el upstream seleccionado se repite el preflight y se crea una nueva sesión/credenciales.
+
+Esta prueba distingue dos fallos que antes podían confundirse:
+
+```
+NDP Aware perdido
+!=
+Internet upstream de B perdido
+```
+
+Ambos deben cerrar Stage2.
