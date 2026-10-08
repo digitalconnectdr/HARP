@@ -48,7 +48,8 @@ diff --git a/openair2/RRC/NR/MESSAGES/asn1_msg.c b/openair2/RRC/NR/MESSAGES/asn1
 @@
 +bool nr_decode_nid44(const NR_NID_r16_t *nid_ie, uint64_t *nid)
 +{
-+  if (!nid_ie || !nid || nid_ie->size != 6 || nid_ie->bits_unused != 4)
++  if (!nid_ie || !nid || !nid_ie->buf
++      || nid_ie->size != 6 || nid_ie->bits_unused != 4)
 +    return false;
 +  if ((nid_ie->buf[5] & 0x0f) != 0)
 +    return false;
@@ -356,6 +357,18 @@ diff --git a/openair2/RRC/NR/MESSAGES/tests/test_asn1_msg.cpp b/openair2/RRC/NR/
 +      0x10000000002ULL,
 +      &selected,
 +      &selected_nid));
++
++  NR_NID_r16_t malformed = {};
++  const uint8_t bad_padding[] = {0x10, 0x00, 0x00, 0x00, 0x00, 0x11};
++  fill_test_bit_string(&malformed, bad_padding, sizeof(bad_padding), 4);
++  uint64_t malformed_value = 0;
++  EXPECT_FALSE(nr_decode_nid44(&malformed, &malformed_value));
++  ASN_STRUCT_FREE_CONTENTS_ONLY(asn_DEF_NR_NID_r16, &malformed);
++
++  NR_NID_r16_t missing_buf = {};
++  missing_buf.size = 6;
++  missing_buf.bits_unused = 4;
++  EXPECT_FALSE(nr_decode_nid44(&missing_buf, &malformed_value));
 +
 +  const plmn_id_t wrong_plmn = {
 +      .mcc = 998,
