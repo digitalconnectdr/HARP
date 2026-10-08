@@ -1,0 +1,51 @@
+From HARP research branch
+Subject: [PATCH] AMF: add optional SNPN NID to serving network name helper
+
+Upstream anchor:
+  openairinterface/oai-cn5g-amf
+  5eedea557a3745b13ed9ec4bf29e6a28bd912574
+
+This patch only extends the formatter. It does not yet source NID from NGAP
+or configuration and therefore does not change existing AMF behavior.
+
+diff --git a/src/utils/amf_conversions.hpp b/src/utils/amf_conversions.hpp
+--- a/src/utils/amf_conversions.hpp
++++ b/src/utils/amf_conversions.hpp
+@@
+   static void to_lower(std::string& str);
+   static void to_lower(bstring& b_str);
+   static std::string get_serving_network_name(
+       const std::string& mnc, const std::string& mcc);
++  static std::string get_serving_network_name(
++      const std::string& mnc,
++      const std::string& mcc,
++      uint64_t nid);
+   static std::string uint32_to_hex_string_full_format(uint32_t value);
+
+diff --git a/src/utils/amf_conversions.cpp b/src/utils/amf_conversions.cpp
+--- a/src/utils/amf_conversions.cpp
++++ b/src/utils/amf_conversions.cpp
+@@
+ std::string amf_conv::get_serving_network_name(
+     const std::string& mnc, const std::string& mcc) {
+   std::string snn = {};
+   if (mnc.length() == 2)  // TODO: remove hardcoded value
+     snn = "5G:mnc0" + mnc + ".mcc" + mcc + ".3gppnetwork.org";
+   else
+     snn = "5G:mnc" + mnc + ".mcc" + mcc + ".3gppnetwork.org";
+   return snn;
+ }
+ 
++//------------------------------------------------------------------------------
++std::string amf_conv::get_serving_network_name(
++    const std::string& mnc, const std::string& mcc, uint64_t nid) {
++  if (nid > 0xFFFFFFFFFFFULL) {
++    throw std::invalid_argument("SNPN NID exceeds 44 bits");
++  }
++
++  std::ostringstream suffix;
++  suffix << ':' << std::uppercase << std::hex << std::setw(11)
++         << std::setfill('0') << nid;
++  return get_serving_network_name(mnc, mcc) + suffix.str();
++}
++
