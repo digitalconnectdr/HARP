@@ -62,7 +62,7 @@ Este tercer gate valida la base del relay persistente que después usará `VpnSe
 
    En cada socket aceptado por B, registrar también:
    ```
-   B: peer scope accepted expectedIf=... expectedIndex=... remoteScope=... localScope=...
+   B: peer Aware binding accepted expectedIf=... expectedIndex=... localAddressMatched=... remoteScope=... localScope=...
    ```
 
    Si Android entrega scope explícito y apunta a otra interfaz, HARP debe rechazar ese peer. Si ambos scopes llegan en cero, conservar el log: la primera prueba física determinará si podemos hacer esta comprobación estricta en esos modelos.
