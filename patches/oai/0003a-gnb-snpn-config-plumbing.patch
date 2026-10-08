@@ -66,6 +66,10 @@ diff --git a/openair2/GNB_APP/gnb_config.c b/openair2/GNB_APP/gnb_config.c
 --- a/openair2/GNB_APP/gnb_config.c
 +++ b/openair2/GNB_APP/gnb_config.c
 @@
+ #include <string.h>
++#include <strings.h>
++
+@@
  static void config_spatial_stream_index(const paramdef_t *param, const size_t np, nr_mac_config_t *radio_config, int num_ru_ports)
  {
 @@
