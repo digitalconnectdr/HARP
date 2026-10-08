@@ -31,6 +31,7 @@ The strict applicator requires every old context block to match exactly once and
 0003b-gnb-snpn-sib1-encoding.patch
 0003c-snpn-npn-codec-test.patch
 0004-nr-ue-snpn-selection.patch
+0004b-nr-ue-snpn-selection-unit-test.patch
 ```
 
 ### Patch 0001
@@ -169,6 +170,24 @@ PASS_V5G_SNPN_SELECT ...
 ```
 
 The marker is not considered validated until a real OAI build/RFsim run emits it.
+
+### Patch 0004b
+
+Purpose:
+
+- move the ASN.1 PLMN+NID lookup into `asn1_msg.c/.h`;
+- make the production lookup available to the existing `test_asn1_msg` target;
+- test exact PLMN+NID success;
+- reject NID mismatch;
+- reject PLMN mismatch.
+
+Gate:
+
+```
+PASS_V5G_SNPN_SELECT_UNIT
+```
+
+This is a pre-RFsim unit gate. The runtime `PASS_V5G_SNPN_SELECT` still requires an actual nrUE SIB1 processing path.
 
 ## Validation policy
 
