@@ -59,14 +59,17 @@ def main() -> None:
 
     auth_marker = f"PASS_V5G_SNPN_AUTH_AMF nid={amf_nid}"
     registered_marker = f"PASS_V5G_SNPN_REGISTERED_AMF nid={amf_nid}"
+    reject_marker = f"HARP_SNPN_AUTH_REJECT_AMF nid={amf_nid}"
     auth_seen = auth_marker in amf
     registered_seen = registered_marker in amf
+    reject_seen = reject_marker in amf
 
     print(f"UE_NID={ue_nid}")
     print(f"AMF_NID={amf_nid}")
     print(f"AMF_SNN={amf_snn}")
     print(f"AUTH_MARKER_SEEN={int(auth_seen)}")
     print(f"REGISTERED_MARKER_SEEN={int(registered_seen)}")
+    print(f"REJECT_MARKER_SEEN={int(reject_seen)}")
 
     if args.mode == "positive":
         if ue_nid != amf_nid:
@@ -83,6 +86,8 @@ def main() -> None:
         fail("negative mode requires mismatched UE and AMF NID")
     if auth_seen or registered_seen:
         fail("negative mode unexpectedly reached SNPN authentication/registration success")
+    if not reject_seen:
+        fail(f"negative mode missing explicit AMF authentication rejection marker: {reject_marker}")
     print("PASS_V5G_SNPN_KDF_NEGATIVE")
 
 
