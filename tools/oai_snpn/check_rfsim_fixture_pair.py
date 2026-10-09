@@ -18,6 +18,10 @@ EXPECTED_NEG_NID = "10000000002"
 EXPECTED_IMSI = "999990000000001"
 EXPECTED_MCC = "999"
 EXPECTED_MNC = "99"
+EXPECTED_KEY = "FEC86BA6EB707ED08905757B1BB44B8F"
+EXPECTED_OPC = "C42449363BBAD02B66D16BC975D77CC1"
+EXPECTED_RAND = "000102030405060708090A0B0C0D0E0F"
+EXPECTED_AMF = "8000"
 
 
 def fail(msg: str) -> None:
@@ -75,10 +79,13 @@ def main() -> None:
 
     ue_nid = one(r'^\s*snpn_nid\s*=\s*"([0-9A-Fa-f]{11})";', ue, "UE NID").upper()
     imsi = one(r'^\s*imsi\s*=\s*"([0-9]+)";', ue, "UE IMSI")
+    nmc_size = one(r'^\s*nmc_size\s*=\s*([0-9]+);', ue, "UE nmc_size")
     if ue_nid != EXPECTED_UE_NID:
         fail(f"UE NID {ue_nid} != {EXPECTED_UE_NID}")
     if imsi != EXPECTED_IMSI:
         fail(f"UE IMSI {imsi} != {EXPECTED_IMSI}")
+    if nmc_size != "2":
+        fail(f"UE nmc_size {nmc_size} != 2")
 
     gnb_mcc = one(r'plmn_list\s*=\s*\(\{\s*mcc\s*=\s*([0-9]+);', gnb, "gNB MCC")
     gnb_mnc = one(r'plmn_list\s*=\s*\(\{[^}]*?mnc\s*=\s*([0-9]+);', gnb, "gNB MNC")
@@ -97,11 +104,20 @@ def main() -> None:
 
     ue_key = one(r'^\s*key\s*=\s*"([0-9A-Fa-f]{32})";', ue, "UE Ki").upper()
     ue_opc = one(r'^\s*opc\s*=\s*"([0-9A-Fa-f]{32})";', ue, "UE OPc").upper()
+    ue_amf = one(r'^\s*amf\s*=\s*"([0-9A-Fa-f]{4})";', ue, "UE AMF").upper()
     ue_sqn = one(r'^\s*sqn\s*=\s*"([0-9A-Fa-f]{6})";', ue, "UE SQN").upper()
     if key != ue_key:
         fail(f"Ki mismatch UE/SQL: {ue_key} != {key}")
     if opc != ue_opc:
         fail(f"OPc mismatch UE/SQL: {ue_opc} != {opc}")
+    if key != EXPECTED_KEY:
+        fail(f"unexpected lab Ki: {key}")
+    if opc != EXPECTED_OPC:
+        fail(f"unexpected lab OPc: {opc}")
+    if rand != EXPECTED_RAND:
+        fail(f"unexpected lab RAND: {rand}")
+    if ue_amf != EXPECTED_AMF:
+        fail(f"unexpected UE AMF field: {ue_amf}")
     if ue_sqn != "000000":
         fail(f"unexpected UE SQN baseline: {ue_sqn}")
 
@@ -123,6 +139,8 @@ def main() -> None:
     print(f"AMF_POSITIVE_NID={pos_nid}")
     print(f"AMF_NEGATIVE_NID={neg_nid}")
     print(f"PLMN={gnb_mcc}/{gnb_mnc}")
+    print(f"NMC_SIZE={nmc_size}")
+    print(f"AMF_FIELD={ue_amf}")
     print(f"SQN=000000")
     print(f"RAND={rand}")
     print("PASS_HARP_RFSIM_SINGLE_VARIABLE_FIXTURES")
