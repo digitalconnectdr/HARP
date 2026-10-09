@@ -22,11 +22,15 @@ def fail(msg: str) -> None:
     raise SystemExit(1)
 
 
-def first(pattern, text, label):
-    m = pattern.search(text)
-    if not m:
+def last(pattern, text, label):
+    matches = list(pattern.finditer(text))
+    if not matches:
         fail(f"missing {label}")
-    return m
+    return matches[-1]
+
+
+def seen_after(text: str, marker: str, offset: int) -> bool:
+    return text.find(marker, offset) != -1
 
 
 def main() -> None:
@@ -46,12 +50,12 @@ def main() -> None:
     ue = read(args.ue_log)
     amf = read(args.amf_log)
 
-    sel = first(SELECT_RE, ue, "UE PASS_V5G_SNPN_SELECT")
+    sel = last(SELECT_RE, ue, "UE PASS_V5G_SNPN_SELECT")
     ue_nid = sel.group("nid").upper()
     if ue_nid != args.expected_ue_nid.upper():
         fail(f"UE selected NID {ue_nid}, expected {args.expected_ue_nid.upper()}")
 
-    amf_line = first(AMF_SNN_RE, amf, "AMF HARP_SNPN_AMF_SNN")
+    amf_line = last(AMF_SNN_RE, amf, "AMF HARP_SNPN_AMF_SNN")
     amf_snn = amf_line.group("snn")
     sm = SNN_RE.fullmatch(amf_snn)
     if not sm:
@@ -65,9 +69,10 @@ def main() -> None:
     auth_marker = f"PASS_V5G_SNPN_AUTH_AMF nid={amf_nid}"
     registered_marker = f"PASS_V5G_SNPN_REGISTERED_AMF nid={amf_nid}"
     reject_marker = f"HARP_SNPN_AUTH_REJECT_AMF nid={amf_nid}"
-    auth_seen = auth_marker in amf
-    registered_seen = registered_marker in amf
-    reject_seen = reject_marker in amf
+    session_offset = amf_line.end()
+    auth_seen = seen_after(amf, auth_marker, session_offset)
+    registered_seen = seen_after(amf, registered_marker, session_offset)
+    reject_seen = seen_after(amf, reject_marker, session_offset)
 
     print(f"UE_NID={ue_nid}")
     print(f"AMF_NID={amf_nid}")
