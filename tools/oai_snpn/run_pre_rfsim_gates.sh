@@ -51,7 +51,18 @@ cmake --build "$BUILD_DIR" --target \
   test_snpn_sib1_codec
 
 echo "[HARP] verifying focused CTest registration..."
-TEST_RE='^(nas_lib_test|test_asn1_msg|test_snpn_sib1_codec)
+TEST_RE='^(nas_lib_test|test_asn1_msg|test_snpn_sib1_codec)$'
+TEST_LISTING="$(ctest --test-dir "$BUILD_DIR" -N -R "$TEST_RE" 2>&1)"
+printf '%s\n' "$TEST_LISTING"
+if ! grep -Eq 'Total Tests: *3$' <<<"$TEST_LISTING"; then
+  echo "ERROR: expected exactly 3 focused SNPN CTest entries." >&2
+  exit 5
+fi
+
+echo "[HARP] running focused CTest selection..."
+ctest --test-dir "$BUILD_DIR" \
+  --output-on-failure \
+  -R "$TEST_RE"
 
 echo "[HARP] verifying expected PASS markers..."
 LOG_FILE="$BUILD_DIR/Testing/Temporary/LastTest.log"
@@ -76,75 +87,6 @@ for marker in "${required_markers[@]}"; do
   if ! grep -Fq "$marker" "$LOG_FILE"; then
     echo "ERROR: expected marker missing: $marker" >&2
     exit 7
-  fi
-done
-
-echo "PASS_HARP_OAI_SNPN_PRE_RFSIM_GATES"
-
-TEST_LISTING="$(ctest --test-dir "$BUILD_DIR" -N -R "$TEST_RE" 2>&1)"
-printf '%s\n' "$TEST_LISTING"
-if ! grep -Eq 'Total Tests: *3
-
-echo "[HARP] verifying expected PASS markers..."
-LOG_FILE="$BUILD_DIR/Testing/Temporary/LastTest.log"
-if [ ! -f "$LOG_FILE" ]; then
-  echo "ERROR: CTest log not found: $LOG_FILE" >&2
-  exit 5
-fi
-
-required_markers=(
-  PASS_V5G_SNN_FORMAT_BASELINE
-  PASS_V5G_SNN_REFACTOR_BASELINE
-  PASS_V5G_SNPN_SNN
-  PASS_V5G_SNPN_KDF_UE
-  PASS_V5G_SNPN_NPN_CODEC
-  PASS_V5G_SNPN_NPN_CODEC_NEGATIVE
-  PASS_V5G_SNPN_CELL_ACCESS_CODEC
-  PASS_V5G_SNPN_SELECT_UNIT
-  PASS_V5G_SNPN_SIB1_CODEC
-)
-
-for marker in "${required_markers[@]}"; do
-  if ! grep -Fq "$marker" "$LOG_FILE"; then
-    echo "ERROR: expected marker missing: $marker" >&2
-    exit 6
-  fi
-done
-
-echo "PASS_HARP_OAI_SNPN_PRE_RFSIM_GATES"
- <<<"$TEST_LISTING"; then
-  echo "ERROR: expected exactly 3 focused SNPN CTest entries." >&2
-  exit 5
-fi
-
-echo "[HARP] running focused CTest selection..."
-ctest --test-dir "$BUILD_DIR" \
-  --output-on-failure \
-  -R "$TEST_RE"
-
-echo "[HARP] verifying expected PASS markers..."
-LOG_FILE="$BUILD_DIR/Testing/Temporary/LastTest.log"
-if [ ! -f "$LOG_FILE" ]; then
-  echo "ERROR: CTest log not found: $LOG_FILE" >&2
-  exit 5
-fi
-
-required_markers=(
-  PASS_V5G_SNN_FORMAT_BASELINE
-  PASS_V5G_SNN_REFACTOR_BASELINE
-  PASS_V5G_SNPN_SNN
-  PASS_V5G_SNPN_KDF_UE
-  PASS_V5G_SNPN_NPN_CODEC
-  PASS_V5G_SNPN_NPN_CODEC_NEGATIVE
-  PASS_V5G_SNPN_CELL_ACCESS_CODEC
-  PASS_V5G_SNPN_SELECT_UNIT
-  PASS_V5G_SNPN_SIB1_CODEC
-)
-
-for marker in "${required_markers[@]}"; do
-  if ! grep -Fq "$marker" "$LOG_FILE"; then
-    echo "ERROR: expected marker missing: $marker" >&2
-    exit 6
   fi
 done
 
