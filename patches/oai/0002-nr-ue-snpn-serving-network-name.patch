@@ -53,12 +53,12 @@ diff --git a/openair3/NAS/NR_UE/nr_nas_msg.c b/openair3/NAS/NR_UE/nr_nas_msg.c
    return n > 0 && (size_t)n < out_size;
  }
  
- static void servingNetworkName(uint8_t *msg, const nr_serving_network_id_t *sn)
- {
-   AssertFatal(
-       nr_format_serving_network_name((char *)msg, 64, sn),
-       "Could not format serving network name");
- }
+-static void servingNetworkName(uint8_t *msg, const nr_serving_network_id_t *sn)
+-{
+-  AssertFatal(
+-      nr_format_serving_network_name((char *)msg, 64, sn),
+-      "Could not format serving network name");
+-}
 
 diff --git a/openair3/NAS/NR_UE/5GS/tests/nas_lib_test.c b/openair3/NAS/NR_UE/5GS/tests/nas_lib_test.c
 --- a/openair3/NAS/NR_UE/5GS/tests/nas_lib_test.c
