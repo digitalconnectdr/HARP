@@ -12,8 +12,8 @@ These files are context blueprints rather than direct `git apply` unified diffs 
 Apply/check them with:
 
 ```bash
-tools/oai_amf_snpn/apply_amf_blueprints.sh /path/to/oai-cn5g-amf --check
-tools/oai_amf_snpn/apply_amf_blueprints.sh /path/to/oai-cn5g-amf
+bash tools/oai_amf_snpn/apply_amf_blueprints.sh /path/to/oai-cn5g-amf --check
+bash tools/oai_amf_snpn/apply_amf_blueprints.sh /path/to/oai-cn5g-amf
 ```
 
 The applicator requires exact unique anchors and runs `git diff --check` after writing.
@@ -86,7 +86,7 @@ This log must appear before the authentication path is considered aligned with t
 Runner:
 
 ```
-tools/oai_amf_snpn/run_amf_build_gate.sh /path/to/oai-cn5g-amf
+bash tools/oai_amf_snpn/run_amf_build_gate.sh /path/to/oai-cn5g-amf
 ```
 
 Requirements:
