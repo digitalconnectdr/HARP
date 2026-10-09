@@ -56,13 +56,17 @@ docker build \
 
 echo "[HARP] running pre-RFsim SNPN gates inside disposable clone..."
 docker run --rm \
+  --user "$(id -u):$(id -g)" \
+  -e HOME=/tmp/harp-home \
   -e HARP_ASN1C_EXEC=/opt/asn1c/bin/asn1c \
   -v "$CLONE:/workspace/oai" \
   -v "$HARP:/workspace/harp:ro" \
   -w /workspace/harp \
   "$IMAGE_NAME" \
-  bash tools/oai_snpn/run_pre_rfsim_gates.sh \
-    /workspace/oai \
-    /workspace/oai/build-harp-snpn
+  bash -lc 'mkdir -p "$HOME" && \
+    git config --global --add safe.directory /workspace/oai && \
+    bash tools/oai_snpn/run_pre_rfsim_gates.sh \
+      /workspace/oai \
+      /workspace/oai/build-harp-snpn'
 
 echo "PASS_HARP_OAI_SNPN_DOCKER_PRE_RFSIM"
