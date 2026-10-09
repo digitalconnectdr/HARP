@@ -40,9 +40,19 @@ echo "[HARP] applying OAI blueprints..."
 bash "$ROOT/tools/oai_snpn/apply_oai_blueprints.sh" "$CHECKOUT"
 
 echo "[HARP] configuring minimal test build..."
+CMAKE_EXTRA=()
+if [ -n "${HARP_ASN1C_EXEC:-}" ]; then
+  if [ ! -x "$HARP_ASN1C_EXEC" ]; then
+    echo "ERROR: HARP_ASN1C_EXEC is not executable: $HARP_ASN1C_EXEC" >&2
+    exit 5
+  fi
+  CMAKE_EXTRA+=("-DASN1C_EXEC=$HARP_ASN1C_EXEC")
+fi
+
 cmake -S "$CHECKOUT" -B "$BUILD_DIR" -GNinja \
   -DENABLE_TESTS=ON \
-  -DSANITIZE_ADDRESS=OFF
+  -DSANITIZE_ADDRESS=OFF \
+  "${CMAKE_EXTRA[@]}"
 
 echo "[HARP] building only SNPN gate targets..."
 cmake --build "$BUILD_DIR" --target \
@@ -68,7 +78,7 @@ echo "[HARP] verifying expected PASS markers..."
 LOG_FILE="$BUILD_DIR/Testing/Temporary/LastTest.log"
 if [ ! -f "$LOG_FILE" ]; then
   echo "ERROR: CTest log not found: $LOG_FILE" >&2
-  exit 6
+  exit 7
 fi
 
 required_markers=(
@@ -86,7 +96,7 @@ required_markers=(
 for marker in "${required_markers[@]}"; do
   if ! grep -Fq "$marker" "$LOG_FILE"; then
     echo "ERROR: expected marker missing: $marker" >&2
-    exit 7
+    exit 8
   fi
 done
 
