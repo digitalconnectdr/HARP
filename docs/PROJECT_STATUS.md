@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-07  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `a310ab3e2be44070f0d0636f9d872eb5c2afe7fb`
+**Baseline commit reviewed through:** `40d9294f150b9798ac1b8452259aa875da17d07a`
 
 ## 1. Product objective
 
@@ -1612,6 +1612,124 @@ Static API audit completed:
 
 Current environment has neither Docker nor Podman, so neither Docker gate has
 been executed here. They are READY, not PASS.
+
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 34. Docker isolation hardening + full 11-blueprint gate — 2026-10-09
+
+Two container-execution hazards were identified and corrected before any real Docker build was attempted.
+
+### OAI Docker ownership/Git safety
+
+Commit:
+
+```
+1b0de1124076aa7f55f8ae80477b7cece62a7f61
+```
+
+The OAI container now runs with the host user's UID/GID instead of root and uses:
+
+```
+HOME=/tmp/harp-home
+```
+
+It also explicitly marks:
+
+```
+/workspace/oai
+```
+
+as a Git safe directory inside the container.
+
+This prevents:
+
+- Git `dubious ownership` failures on bind-mounted source;
+- root-owned build artifacts being left in the host-side disposable clone.
+
+### AMF Docker source-only context
+
+The pinned AMF `.dockerignore` does not exclude `.git`. Because `build_amf`
+auto-initializes submodules whenever both `.git` and `.gitmodules` exist,
+a naive Docker context could silently re-fetch submodules from public Git URLs.
+
+Commit:
+
+```
+8c3c1acd8d69ee87364f8f6541b0fe407b24becc
+```
+
+The AMF Docker runner now:
+
+1. requires all three declared submodules to be initialized at the pinned gitlinks:
+   - `src/common-src`;
+   - `build/common-build`;
+   - `ci-scripts/common`;
+2. copies their source contents into the disposable clone without nested Git metadata;
+3. removes the disposable clone's top-level `.git` and `.gitmodules`;
+4. only then executes `docker build`.
+
+Therefore the Docker build context is source-only and cannot auto-update submodules.
+
+### Full OAI blueprint-chain gate
+
+A dedicated full-chain checker was added:
+
+```
+tools/oai_snpn/check_full_blueprint_chain.sh
+```
+
+Initial commit:
+
+```
+bd1228da4ef6cdac7cabd346b4d1e23965fb97da
+```
+
+It requires:
+
+- exact OAI anchor `f8f769592a7030be88ede4bb5ca66fa1ca6a80e0`;
+- clean worktree;
+- successful context validation of the full wrapper sequence;
+- exactly 11 OAI blueprint patch entries.
+
+Portable patch-count fix:
+
+```
+40d9294f150b9798ac1b8452259aa875da17d07a
+```
+
+Expected marker:
+
+```
+PASS_HARP_OAI_FULL_BLUEPRINT_CHAIN
+```
+
+The pre-RFsim runner now invokes this full-chain gate before applying any patch:
+
+```
+34d62643bf1434ea15c2ea0cd173745f9c51991d
+```
+
+An attempted connector-side revalidation of all 11 patches in one request exceeded
+the connector's maximum tool-call count. No partial result was promoted to PASS.
+
+The new local checker is the authoritative next execution path for the complete
+11-patch sequence.
+
+Current status:
+
+```
+standalone helpers                    PASS
+independent KDF                       PASS
+known critical blueprint subchains    PASS
+full 11-blueprint local checker       READY
+OAI Docker pre-RFsim runner           READY
+AMF Docker build runner               READY
+real OAI compile                      PENDING
+real AMF compile                      PENDING
+RFsim                                 PENDING
+```
 
 No GitHub Actions were used.
 No phone installation is required yet.
