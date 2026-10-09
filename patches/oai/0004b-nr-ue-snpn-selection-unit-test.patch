@@ -147,7 +147,8 @@ diff --git a/openair2/RRC/NR_UE/rrc_UE.c b/openair2/RRC/NR_UE/rrc_UE.c
 @@
 -static bool harp_decode_nid44(const NR_NID_r16_t *nid_ie, uint64_t *nid)
 -{
--  if (!nid_ie || !nid || nid_ie->size != 6 || nid_ie->bits_unused != 4)
+-  if (!nid_ie || !nid || !nid_ie->buf
+-      || nid_ie->size != 6 || nid_ie->bits_unused != 4)
 -    return false;
 -  if ((nid_ie->buf[5] & 0x0f) != 0)
 -    return false;
