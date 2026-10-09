@@ -1,14 +1,7 @@
-#include "nid44.h"\n\n#include <stdbool.h>
+#include "nid44.h"
+
 #include <stdint.h>
 #include <stdlib.h>
-
-#define HARP_NID44_MAX 0xFFFFFFFFFFFULL
-
-typedef struct {
-  uint8_t *buf;
-  size_t size;
-  int bits_unused;
-} harp_bit_string_t;
 
 bool harp_nid44_encode(uint64_t nid, harp_bit_string_t *out)
 {
