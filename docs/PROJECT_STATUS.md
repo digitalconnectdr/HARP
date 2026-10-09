@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-07  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `f3e2e4707f58701c6670fa4ef1d609e6289fcc7d`
+**Baseline commit reviewed through:** `a56adf3d211ed1432dda4126691fe9b999d91a4d`
 
 ## 1. Product objective
 
@@ -969,5 +969,62 @@ AMF NID = 10000000002
 ```
 
 No authentication PASS marker is claimed yet.
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 26. Current blueprint chains revalidated in memory — 2026-10-08
+
+A fresh sequential context validation was run directly against the pinned upstream GitHub source files after the latest ASN.1 and selector edits.
+
+OAI critical chain:
+
+```
+PASS_OAI_CRITICAL_BLUEPRINT_CHAIN_41_OF_41
+```
+
+Sequence:
+
+```
+0001
+ -> 0003c
+ -> 0003d
+ -> 0004
+ -> 0004b
+ -> 0004c
+```
+
+One real dependency drift was detected and corrected during this pass:
+
+- `0004` had gained the explicit `snpn` pointer helper;
+- `0004b` still matched the older function body;
+- commit `0bdcee8603053fab81030941ce36c6593f53c79c` realigned the hunk.
+
+Additional cleanup:
+
+- `f3fd6f16d56725b834c199b156469bc01c877efa`: `0004b` removal context realigned to the hardened null-buffer decoder;
+- `822681a4bafc2ab083cbf0a73eb4740f8c253b48`: `0003d` no longer duplicates the ASN.1 includes already introduced by `0003c`, and no longer relies on `sizeofArray`.
+
+AMF chain:
+
+```
+PASS_AMF_BLUEPRINT_CHAIN_17_OF_17
+```
+
+Sequence:
+
+```
+0001-amf-optional-snpn-snn-formatter.patch
+ -> 0002-amf-lab-snpn-nid-config.patch
+```
+
+Detailed record:
+
+```
+docs/OAI_BLUEPRINT_CHAIN_VALIDATION_2026-10-08.md
+```
+
+These are context-applicability PASS markers only. Compilation, CMake linkage, generated-header compile, unit test execution, RFsim, and authentication remain pending.
+
 No GitHub Actions were used.
 No phone installation is required yet.
