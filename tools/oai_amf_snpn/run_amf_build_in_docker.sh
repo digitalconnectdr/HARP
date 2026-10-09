@@ -83,6 +83,6 @@ echo "[HARP] verifying AMF binary exists in builder image..."
 docker run --rm \
   --entrypoint /bin/bash \
   "$IMAGE_NAME" \
-  -lc 'test -x /openair-amf/build/amf/build/oai_amf && /usr/bin/file /openair-amf/build/amf/build/oai_amf'
+  -lc 'test -x /openair-amf/build/amf/build/oai_amf'
 
 echo "PASS_HARP_AMF_SNPN_DOCKER_BUILD"
