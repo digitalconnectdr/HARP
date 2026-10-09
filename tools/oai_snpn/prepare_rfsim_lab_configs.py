@@ -141,6 +141,9 @@ def main() -> None:
     print(f"UE_GNB_NID={LAB_NID}")
     print(f"AMF_POSITIVE_NID={LAB_NID}")
     print(f"AMF_NEGATIVE_NID={NEGATIVE_AMF_NID}")
+    checker = root / "tools/oai_snpn/check_rfsim_fixture_pair.py"
+    subprocess.run(["python3", str(checker), str(out)], check=True)
+
     print("PASS_HARP_RFSIM_FIXTURE_GENERATION")
 
 
