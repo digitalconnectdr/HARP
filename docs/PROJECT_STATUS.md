@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-07  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `d8d0e001e8a88d2fd47c0f7f6c76cec0a1af5e0e`
+**Baseline commit reviewed through:** `54ededd46123e99ec6e6a4c4fa24ed35ce8da0aa`
 
 ## 1. Product objective
 
@@ -1168,5 +1168,87 @@ RFsim positive           PENDING
 RFsim mismatched NID     PENDING
 ```
 
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 29. RFsim experiment fixtures + strict authentication gates — 2026-10-08
+
+AMF authentication observability was tightened:
+
+- `6d5183ab2cc23097a46261c73d233c2191f332eb`: explicit positive markers added after real RES* acceptance and after Registration Complete;
+- `ce5f855dd08eab2c7bb9fbc743343fa863d2f91d`: explicit rejection marker added inside the real `!isAuthOk` branch;
+- current AMF blueprint chain revalidated:
+  `PASS_AMF_BLUEPRINT_CHAIN_20_OF_20`.
+
+Markers:
+
+```
+PASS_V5G_SNPN_AUTH_AMF nid=<NID>
+PASS_V5G_SNPN_REGISTERED_AMF nid=<NID>
+HARP_SNPN_AUTH_REJECT_AMF nid=<NID>
+```
+
+RFsim checker changes:
+
+- `12dffb262d4c12021d96c0161cb8dc55b6ca19a7`: positive checker moved from generic text to exact AMF markers;
+- `f76d08c00af7590ae01379f0461e4eb3f95ef238`: negative checker now requires explicit AMF authentication rejection;
+- `c37b29615b4db1eb6427fd5fc964403a58f6c3ca`: KDF/authentication gate separated from full-registration gate;
+- `fc8d31a94360b3ecf64be5713ad4ecbb23a734e2` + `c6277061ce2c806116d287708f2b4e848a832cca`: self-test updated for auth-only, registration-required, mismatch-reject and false-success cases.
+
+Current interpretation:
+
+```
+PASS_V5G_SNPN_AUTH_AMF
+        |
+PASS_V5G_SNPN_KDF_LAB
+
+PASS_V5G_SNPN_REGISTERED_AMF
+        |
+PASS_V5G_SNPN_REGISTERED   [later/full core]
+```
+
+This avoids making the cryptographic SNPN experiment depend on unrelated downstream SMF/PCF/UPF behavior.
+
+RFsim fixtures:
+
+- `5f2ec523cb6fe15357544ec4dc8ba254dff28b41`: nrUE fixture;
+- `681a1647f40721767a63cbba781f82bfb1c31a28`: MySQL subscriber fixture with explicit columns and `UNHEX()` key material;
+- `5af235554064bb3d59e04cb86cf41708ee33a124`: deterministic fixture generator;
+- `7fdb0b2c6151d2976421d5dd93738b2aac525a78`: positive/negative RFsim execution runbook.
+
+Lab identity:
+
+```
+MCC 999
+MNC 99
+IMSI 999990000000001
+UE/gNB NID 10000000001
+AMF positive NID 10000000001
+AMF negative NID 10000000002
+```
+
+The fixture generator was validated against the exact pinned upstream gNB and AMF config files:
+
+- all text anchors were unique;
+- gNB output contains PLMN 999/99 and NID 10000000001;
+- AMF output enables simple scenario and PLMN/GUAMI 999/99;
+- positive/negative AMF configs are byte-identical after normalizing the single `snpn_nid` line.
+
+UICC/MySQL material cross-check:
+
+```
+IMSI  MATCH
+Ki    MATCH
+OPc   MATCH
+SQN   MATCH
+NID   PRESENT
+```
+
+Important experimental control:
+
+The AMF increments MySQL SQN during authentication. Therefore `harp_subscriber.sql` must be re-imported before **each** positive or negative run, and AMF/nrUE must restart. Otherwise an SQN synchronization failure could be misattributed to the NID mismatch.
+
+No real RFsim PASS marker has been claimed yet.
 No GitHub Actions were used.
 No phone installation is required yet.
