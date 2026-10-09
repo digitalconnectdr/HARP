@@ -62,6 +62,7 @@ new file mode 100644
 + * SPDX-License-Identifier: LicenseRef-CSSL-1.0
 + */
 +
++#include <stdbool.h>
 +#include <stdint.h>
 +#include <stdio.h>
 +#include <stdlib.h>
