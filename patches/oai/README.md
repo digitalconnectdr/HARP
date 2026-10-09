@@ -14,8 +14,8 @@ Important: these files intentionally use context-only `@@` sections while the re
 Use:
 
 ```bash
-tools/oai_snpn/apply_oai_blueprints.sh /path/to/openairinterface5g --check
-tools/oai_snpn/apply_oai_blueprints.sh /path/to/openairinterface5g
+bash tools/oai_snpn/apply_oai_blueprints.sh /path/to/openairinterface5g --check
+bash tools/oai_snpn/apply_oai_blueprints.sh /path/to/openairinterface5g
 ```
 
 The strict applicator requires every old context block to match exactly once and then runs `git diff --check`. After application, `git diff` is the authoritative standard diff.
@@ -237,8 +237,8 @@ Required validation after an OAI checkout/build environment exists:
 
 ```
 git checkout f8f769592a7030be88ede4bb5ca66fa1ca6a80e0
-tools/oai_snpn/apply_oai_blueprints.sh <checkout> --check
-tools/oai_snpn/apply_oai_blueprints.sh <checkout>
+bash tools/oai_snpn/apply_oai_blueprints.sh <checkout> --check
+bash tools/oai_snpn/apply_oai_blueprints.sh <checkout>
 git diff --check
 build/tests
 baseline KDF comparison
@@ -263,7 +263,7 @@ Still intentionally deferred:
 A focused local runner is available:
 
 ```
-tools/oai_snpn/run_pre_rfsim_gates.sh /path/to/openairinterface5g
+bash tools/oai_snpn/run_pre_rfsim_gates.sh /path/to/openairinterface5g
 ```
 
 Requirements:
@@ -337,3 +337,20 @@ K_SEAF KDF input     47 bytes
 All fit within the existing 100-byte OAI KDF work buffers.
 
 Patch `0002` was hardened so each KDF caller passes its actual remaining buffer size directly to `nr_format_serving_network_name()`; the old static fixed-size wrapper is removed.
+
+
+## Standalone suite
+
+All standalone helpers can be compiled and executed without a full OAI checkout:
+
+```bash
+bash tools/oai_snpn/run_standalone_suite.sh
+```
+
+Expected final marker:
+
+```
+PASS_HARP_SNPN_STANDALONE_SUITE
+```
+
+The suite covers NID44 encode/decode, UE SNN formatting, AMF SNN formatting, UE↔AMF canonical SNN equality, and the independent KDF reference vectors.
