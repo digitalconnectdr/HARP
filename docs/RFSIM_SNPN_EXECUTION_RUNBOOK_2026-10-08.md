@@ -214,12 +214,17 @@ python3 tools/oai_snpn/check_rfsim_snpn_logs.py \
 Required sequence:
 
 ```
+UE_PLMN=999/99
+AMF_PLMN=999/099
 UE_NID=10000000001
 AMF_NID=10000000001
 AUTH_MARKER_SEEN=1
 PASS_V5G_SNPN_AUTH
 PASS_V5G_SNPN_KDF_LAB
 ```
+
+The checker compares PLMN numerically, so UE MNC `99` and canonical SNN MNC
+`099` are treated as the same two-digit MNC representation.
 
 The AMF marker is emitted only after RES* has been accepted:
 
@@ -315,6 +320,8 @@ python3 tools/oai_snpn/check_rfsim_snpn_logs.py \
 Required:
 
 ```
+UE_PLMN=999/99
+AMF_PLMN=999/099
 UE_NID=10000000001
 AMF_NID=10000000002
 AUTH_MARKER_SEEN=0
@@ -376,3 +383,47 @@ PASS_V5G_SNPN_REGISTERED
 ```
 
 No RFsim gate is considered passed until produced by real RAN/AMF execution logs.
+
+
+## 10. Log-session correlation rules
+
+The RFsim checker does not trust markers found anywhere in a log file.
+
+It uses:
+
+- the **last** `PASS_V5G_SNPN_SELECT` event in the UE log;
+- the **last** `HARP_SNPN_AMF_SNN` event in the AMF log;
+- only authentication/registration/rejection markers that occur **after**
+  that AMF SNN event.
+
+This prevents an old successful authentication from contaminating a later
+negative run, or an old rejection from contaminating a later positive run.
+
+The checker also requires:
+
+```
+UE MCC/MNC == AMF SNN MCC/MNC
+```
+
+before evaluating authentication success.
+
+Therefore these are rejected:
+
+```
+correct NID + wrong PLMN
+stale PASS before current SNN
+stale REJECT before current SNN
+negative run with later PASS
+positive run without later AUTH PASS
+```
+
+Synthetic self-test markers:
+
+```
+PASS_RFSIM_SNPN_LOG_CHECKER_SELFTEST
+PASS_RFSIM_LOG_SESSION_CORRELATION
+PASS_RFSIM_LOG_PLMN_MISMATCH_REJECTED
+```
+
+These remain checker-logic tests only; they are not RFsim authentication PASS
+evidence.
