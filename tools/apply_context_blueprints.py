@@ -209,8 +209,14 @@ def main() -> int:
     args = parser.parse_args()
 
     checkout = args.checkout.resolve()
-    if not (checkout / ".git").exists():
-        parser.error(f"{checkout} is not a Git checkout")
+    repo_check = subprocess.run(
+        ["git", "rev-parse", "--is-inside-work-tree"],
+        cwd=checkout,
+        text=True,
+        capture_output=True,
+    )
+    if repo_check.returncode != 0 or repo_check.stdout.strip() != "true":
+        parser.error(f"{checkout} is not a Git worktree/checkout")
 
     all_hunks: list[Hunk] = []
     for bp in args.blueprints:
