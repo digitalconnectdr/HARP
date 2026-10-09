@@ -7,11 +7,12 @@ trap 'rm -rf "$TMP"' EXIT
 
 cat >"$TMP/ue-positive.log" <<'EOF'
 PASS_V5G_SNPN_SELECT mcc=999 mnc=99 nid=10000000001
-5GMM-REGISTERED
 EOF
 
 cat >"$TMP/amf-positive.log" <<'EOF'
 HARP_SNPN_AMF_SNN 5G:mnc099.mcc999.3gppnetwork.org:10000000001
+PASS_V5G_SNPN_AUTH_AMF nid=10000000001
+PASS_V5G_SNPN_REGISTERED_AMF nid=10000000001
 EOF
 
 python3 "$ROOT/tools/oai_snpn/check_rfsim_snpn_logs.py" \
@@ -36,7 +37,7 @@ python3 "$ROOT/tools/oai_snpn/check_rfsim_snpn_logs.py" \
 
 cat >"$TMP/amf-false-success.log" <<'EOF'
 HARP_SNPN_AMF_SNN 5G:mnc099.mcc999.3gppnetwork.org:10000000002
-Registration accept
+PASS_V5G_SNPN_AUTH_AMF nid=10000000002
 EOF
 
 if python3 "$ROOT/tools/oai_snpn/check_rfsim_snpn_logs.py" \
