@@ -106,3 +106,44 @@ PASS_HARP_AMF_SNPN_BUILD
 ```
 
 This proves compilation/link closure only. It does not prove startup, registration or authentication.
+
+
+## Explicit SNPN authentication markers
+
+The staged AMF patch now emits exact markers at the real authentication branches:
+
+Successful RES* validation:
+
+```
+PASS_V5G_SNPN_AUTH_AMF nid=10000000001
+```
+
+Completed registration:
+
+```
+PASS_V5G_SNPN_REGISTERED_AMF nid=10000000001
+```
+
+Authentication rejection:
+
+```
+HARP_SNPN_AUTH_REJECT_AMF nid=10000000002
+```
+
+The KDF lab gate is intentionally tied to the authentication marker, not to Registration Complete:
+
+```
+PASS_V5G_SNPN_AUTH_AMF
+        ->
+PASS_V5G_SNPN_KDF_LAB
+```
+
+Full registration is a later optional gate:
+
+```
+PASS_V5G_SNPN_REGISTERED_AMF
+        ->
+PASS_V5G_SNPN_REGISTERED
+```
+
+This separation avoids conflating SNPN/KDF correctness with downstream SMF/PCF/UPF availability.
