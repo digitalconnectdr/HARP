@@ -26,7 +26,7 @@ EOF
 
 cat >"$TMP/amf-negative.log" <<'EOF'
 HARP_SNPN_AMF_SNN 5G:mnc099.mcc999.3gppnetwork.org:10000000002
-Authentication rejected
+HARP_SNPN_AUTH_REJECT_AMF nid=10000000002
 EOF
 
 python3 "$ROOT/tools/oai_snpn/check_rfsim_snpn_logs.py" \
@@ -37,6 +37,7 @@ python3 "$ROOT/tools/oai_snpn/check_rfsim_snpn_logs.py" \
 
 cat >"$TMP/amf-false-success.log" <<'EOF'
 HARP_SNPN_AMF_SNN 5G:mnc099.mcc999.3gppnetwork.org:10000000002
+HARP_SNPN_AUTH_REJECT_AMF nid=10000000002
 PASS_V5G_SNPN_AUTH_AMF nid=10000000002
 EOF
 
