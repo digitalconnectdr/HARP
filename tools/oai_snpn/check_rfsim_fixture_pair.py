@@ -90,25 +90,40 @@ def main() -> None:
         fail("subscriber SQL does not contain expected IMSI")
 
     # The fixture reset must pin the AKA material used by the UE.
-    key = one(r"UNHEX\('([0-9A-Fa-f]{32})'\)", sql, "subscriber Ki").upper()
-    all_hex = re.findall(r"UNHEX\('([0-9A-Fa-f]+)'\)", sql)
-    if len(all_hex) < 3:
-        fail("subscriber SQL missing RAND/OPc material")
-    rand = all_hex[-2].upper()
-    opc = all_hex[-1].upper()
+    all_hex = re.findall(r"UNHEX\('([0-9A-Fa-f]{32})'\)", sql)
+    if len(all_hex) != 3:
+        fail(f"subscriber SQL: expected exactly 3 128-bit UNHEX values, found {len(all_hex)}")
+    key, rand, opc = (value.upper() for value in all_hex)
 
     ue_key = one(r'^\s*key\s*=\s*"([0-9A-Fa-f]{32})";', ue, "UE Ki").upper()
     ue_opc = one(r'^\s*opc\s*=\s*"([0-9A-Fa-f]{32})";', ue, "UE OPc").upper()
+    ue_sqn = one(r'^\s*sqn\s*=\s*"([0-9A-Fa-f]{6})";', ue, "UE SQN").upper()
     if key != ue_key:
         fail(f"Ki mismatch UE/SQL: {ue_key} != {key}")
     if opc != ue_opc:
         fail(f"OPc mismatch UE/SQL: {ue_opc} != {opc}")
+    if ue_sqn != "000000":
+        fail(f"unexpected UE SQN baseline: {ue_sqn}")
+
+    insert = re.search(
+        r"INSERT\s+INTO\s+users\s*\((?P<cols>.*?)\)\s*VALUES\s*\((?P<vals>.*?)\)\s*;",
+        sql,
+        re.IGNORECASE | re.DOTALL,
+    )
+    if not insert:
+        fail("subscriber SQL INSERT statement not found")
+    values = [v.strip() for v in insert.group("vals").split(",")]
+    if len(values) != 17:
+        fail(f"subscriber SQL: expected 17 INSERT values, found {len(values)}")
+    if values[14] != "0":
+        fail(f"subscriber SQL SQN baseline is not zero: {values[14]}")
 
     print(f"UE_IMSI={imsi}")
     print(f"UE_GNB_NID={ue_nid}")
     print(f"AMF_POSITIVE_NID={pos_nid}")
     print(f"AMF_NEGATIVE_NID={neg_nid}")
     print(f"PLMN={gnb_mcc}/{gnb_mnc}")
+    print(f"SQN=000000")
     print(f"RAND={rand}")
     print("PASS_HARP_RFSIM_SINGLE_VARIABLE_FIXTURES")
 
