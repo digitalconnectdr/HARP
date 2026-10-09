@@ -166,3 +166,20 @@ diff --git a/src/amf-app/amf_n1.cpp b/src/amf-app/amf_n1.cpp
 +  }
  
    // Check follow-on-request indicator
+
+diff --git a/src/amf-app/amf_n1.cpp b/src/amf-app/amf_n1.cpp
+--- a/src/amf-app/amf_n1.cpp
++++ b/src/amf-app/amf_n1.cpp
+@@
+   if (!isAuthOk) {
+     Logger::amf_n1().error(
+         "Authentication failed for UE with "
+         "amf_ue_ngap_id " AMF_UE_NGAP_ID_FMT,
+         amf_ue_ngap_id);
++    if (amf_cfg->snpn_nid.has_value()) {
++      Logger::amf_n1().info(
++          "HARP_SNPN_AUTH_REJECT_AMF nid=%011llX",
++          (unsigned long long) amf_cfg->snpn_nid.value());
++    }
+     cause = k5gmmCauseSecurityModeRejectedUnspecified;
+     return false;
