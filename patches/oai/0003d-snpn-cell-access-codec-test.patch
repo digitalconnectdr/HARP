@@ -23,10 +23,6 @@ diff --git a/openair2/RRC/NR/MESSAGES/tests/test_asn1_msg.cpp b/openair2/RRC/NR/
 @@
  #include "NR_SIB4.h"
 +#include "NR_CellAccessRelatedInfo.h"
-+#include "NR_NPN-IdentityInfoList-r16.h"
-+#include "NR_NPN-IdentityInfo-r16.h"
-+#include "NR_NPN-Identity-r16.h"
-+#include "NR_NID-r16.h"
 @@
  RAN_CONTEXT_t RC;
  #ifdef __cplusplus
@@ -37,14 +33,14 @@ diff --git a/openair2/RRC/NR/MESSAGES/tests/test_asn1_msg.cpp b/openair2/RRC/NR/
 +{
 +  plmn->mcc = (NR_MCC_t *)calloc_or_fail(1, sizeof(*plmn->mcc));
 +  const int mcc_divisors[] = {100, 10, 1};
-+  for (size_t i = 0; i < sizeofArray(mcc_divisors); ++i) {
++  for (size_t i = 0; i < sizeof(mcc_divisors) / sizeof(mcc_divisors[0]); ++i) {
 +    auto *digit = (NR_MCC_MNC_Digit_t *)calloc_or_fail(1, sizeof(*digit));
 +    *digit = (mcc_value / mcc_divisors[i]) % 10;
 +    ASN_SEQUENCE_ADD(&plmn->mcc->list, digit);
 +  }
 +
 +  const int mnc_divisors[] = {10, 1};
-+  for (size_t i = 0; i < sizeofArray(mnc_divisors); ++i) {
++  for (size_t i = 0; i < sizeof(mnc_divisors) / sizeof(mnc_divisors[0]); ++i) {
 +    auto *digit = (NR_MCC_MNC_Digit_t *)calloc_or_fail(1, sizeof(*digit));
 +    *digit = (mnc_value / mnc_divisors[i]) % 10;
 +    ASN_SEQUENCE_ADD(&plmn->mnc.list, digit);
