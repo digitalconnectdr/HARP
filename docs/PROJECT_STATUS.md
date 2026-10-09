@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-07  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `c4aec7b73283bb07a91767b6597d58c59e266546`
+**Baseline commit reviewed through:** `b8c781c95dc03af7a1d9bf6519bc295f3376b905`
 
 ## 1. Product objective
 
@@ -1806,6 +1806,117 @@ no REGISTERED
 HARP_SNPN_AUTH_REJECT_AMF
         |
 PASS_V5G_SNPN_KDF_NEGATIVE
+```
+
+No real RFsim PASS is claimed yet.
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 36. RFsim single-variable fixture invariant gate — 2026-10-09
+
+A dedicated pre-experiment fixture validator was added:
+
+```
+tools/oai_snpn/check_rfsim_fixture_pair.py
+```
+
+Initial commit:
+
+```
+d9a99428f6e3d356c7250568cbd3ce2d56af435f
+```
+
+The generator now invokes this checker before its own final PASS:
+
+```
+e252686fe0946e3b3367a3c103f2a1856f21e9ed
+```
+
+Therefore:
+
+```
+PASS_HARP_RFSIM_SINGLE_VARIABLE_FIXTURES
+        |
+PASS_HARP_RFSIM_FIXTURE_GENERATION
+```
+
+is the required order.
+
+A parser defect was found immediately during audit: the first implementation
+expected exactly one 128-bit `UNHEX()` token in the subscriber SQL, but the
+fixture correctly contains three values: Ki, RAND and OPc.
+
+The defect was corrected before any gate was claimed:
+
+```
+d054d01c094a8760b2809d963deb007d2a559ee3
+```
+
+The corrected checker extracts the three values in INSERT order and verifies
+the SQL SQN baseline is zero.
+
+The fixture generator was also hardened to require both upstream inputs to be:
+
+- real Git worktrees/checkouts;
+- exactly at the pinned commit;
+- clean before fixture generation.
+
+Commit:
+
+```
+dd6c8c110461e6d946ae38a9535ac255968d8e2c
+```
+
+A synthetic self-test runner was added:
+
+```
+tools/oai_snpn/run_rfsim_fixture_checker_selftest.sh
+```
+
+commit:
+
+```
+1360bab0ade8027ca872be05ace5f61079849412
+```
+
+It covers:
+
+- valid positive/negative fixture pair;
+- extra AMF difference beyond NID;
+- UE/SQL Ki mismatch;
+- non-zero SQL SQN baseline.
+
+The fixture invariant was further pinned to the exact HARP lab values:
+
+```
+IMSI      999990000000001
+nmc_size  2
+NID UE    10000000001
+NID AMF+  10000000001
+NID AMF-  10000000002
+Ki        FEC86BA6EB707ED08905757B1BB44B8F
+OPc       C42449363BBAD02B66D16BC975D77CC1
+RAND      000102030405060708090A0B0C0D0E0F
+AMF field 8000
+SQN       000000 / SQL 0
+PLMN      999/99
+```
+
+Commit:
+
+```
+b8c781c95dc03af7a1d9bf6519bc295f3376b905
+```
+
+This means a coordinated accidental edit to both UE and SQL credentials will no
+longer pass merely because the two files still agree: they must also equal the
+known laboratory baseline.
+
+Runbook documentation:
+
+```
+4f4e2500356929429e744af10cae8351cf3f295d
 ```
 
 No real RFsim PASS is claimed yet.
