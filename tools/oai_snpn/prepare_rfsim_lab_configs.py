@@ -23,13 +23,25 @@ def git_head(path: Path) -> str:
 
 
 def require_anchor(path: Path, expected: str, label: str) -> None:
-    if not (path / ".git").exists():
-        raise SystemExit(f"{label}: not a git checkout: {path}")
+    repo = subprocess.run(
+        ["git", "-C", str(path), "rev-parse", "--is-inside-work-tree"],
+        text=True,
+        capture_output=True,
+    )
+    if repo.returncode != 0 or repo.stdout.strip() != "true":
+        raise SystemExit(f"{label}: not a git worktree/checkout: {path}")
+
     actual = git_head(path)
     if actual != expected:
         raise SystemExit(
             f"{label}: wrong commit\nexpected {expected}\nactual   {actual}"
         )
+
+    dirty = subprocess.check_output(
+        ["git", "-C", str(path), "status", "--porcelain"], text=True
+    ).strip()
+    if dirty:
+        raise SystemExit(f"{label}: checkout/worktree is not clean")
 
 
 def exactly_once(text: str, old: str, new: str, label: str) -> str:
