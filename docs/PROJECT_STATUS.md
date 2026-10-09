@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-07  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `e6346b7a8d86ee6b8daaedc17c4288283bfde988`
+**Baseline commit reviewed through:** `857cab4b83366c223fdc4d1df71b30ac609d07d7`
 
 ## 1. Product objective
 
@@ -1452,6 +1452,70 @@ AMF full compile                  PENDING
 RFsim positive                    PENDING
 RFsim mismatched-NID negative     PENDING
 ```
+
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 32. Build-toolchain preflight and worktree hardening — 2026-10-09
+
+The OAI/AMF local build path was hardened before attempting a full compile.
+
+Worktree support:
+
+- `ff2ed95740f01d839418fc357e32855e993308f4`: OAI pre-RFsim runner now validates repositories with `git rev-parse` instead of requiring `.git` to be a directory;
+- `f9d2f029466c993b09cdb6dd894c30b98ea9fd11`: AMF build runner receives the same fix;
+- this matters because a normal `git worktree` stores `.git` as a file.
+
+Direct blueprint wrappers were also hardened:
+
+- `04ad39e7d33601153bb116e2741aeec18b27da52`: generic blueprint applicator validates a real Git worktree via `git rev-parse`;
+- `f57c1eaa254e758a9fab49cce22643f1c1f25a14`: OAI wrapper now requires exact HEAD `f8f769592a7030be88ede4bb5ca66fa1ca6a80e0` and a clean worktree;
+- `fce71982b83cea46b201ad866188a5daf70e3f6b`: AMF wrapper now requires exact HEAD `5eedea557a3745b13ed9ec4bf29e6a28bd912574` and a clean worktree.
+
+This removes the possibility of applying the context blueprints silently to an unintended source revision.
+
+Build-environment preflight:
+
+- `857cab4b83366c223fdc4d1df71b30ac609d07d7`;
+- file: `tools/oai_snpn/check_build_environment.sh`;
+- expected OAI ASN.1 compiler source commit:
+  `940dd5fa9f3917913fd487b13dfddfacd0ded06e`.
+
+Current environment result:
+
+```
+FOUND   git
+FOUND   cmake
+FOUND   ninja
+FOUND   cc
+FOUND   c++
+FOUND   python3
+FOUND   autoreconf
+FOUND   make
+
+MISSING bison
+MISSING flex
+MISSING asn1c
+```
+
+The pinned OAI `build_helper` confirms that its ASN.1 tool installation path explicitly requires `bison`, `flex`, and builds `mouse07410/asn1c` at commit:
+
+```
+940dd5fa9f3917913fd487b13dfddfacd0ded06e
+```
+
+Infrastructure attempts:
+
+- system package metadata has no cached candidate for `bison` or `flex`;
+- direct APT index refresh timed out;
+- direct container DNS access to GitHub is unavailable;
+- direct binary package download is blocked by the current environment;
+- therefore the missing toolchain cannot be installed here without an external package/network path.
+
+An alternate generated-parser source was investigated but rejected because its `asn1p_y.y` / `asn1p_l.l` blobs do not match the exact OAI-pinned `mouse07410/asn1c` grammar. No incompatible generated parser was substituted.
+
+Full OAI ASN.1 generation remains blocked by environment/toolchain availability, not by a known HARP source failure.
 
 No GitHub Actions were used.
 No phone installation is required yet.
