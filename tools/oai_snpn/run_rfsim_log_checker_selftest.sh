@@ -76,3 +76,30 @@ if python3 "$ROOT/tools/oai_snpn/check_rfsim_snpn_logs.py" \
 fi
 
 echo "PASS_RFSIM_SNPN_LOG_CHECKER_SELFTEST"
+
+cat >"$TMP/amf-stale-positive-before-negative.log" <<'EOF'
+HARP_SNPN_AMF_SNN 5G:mnc099.mcc999.3gppnetwork.org:10000000001
+PASS_V5G_SNPN_AUTH_AMF nid=10000000001
+HARP_SNPN_AMF_SNN 5G:mnc099.mcc999.3gppnetwork.org:10000000002
+HARP_SNPN_AUTH_REJECT_AMF nid=10000000002
+EOF
+
+python3 "$ROOT/tools/oai_snpn/check_rfsim_snpn_logs.py" \
+  --mode negative \
+  --ue-log "$TMP/ue-negative.log" \
+  --amf-log "$TMP/amf-stale-positive-before-negative.log" \
+  --expected-amf-nid 10000000002
+
+cat >"$TMP/amf-stale-reject-before-positive.log" <<'EOF'
+HARP_SNPN_AMF_SNN 5G:mnc099.mcc999.3gppnetwork.org:10000000002
+HARP_SNPN_AUTH_REJECT_AMF nid=10000000002
+HARP_SNPN_AMF_SNN 5G:mnc099.mcc999.3gppnetwork.org:10000000001
+PASS_V5G_SNPN_AUTH_AMF nid=10000000001
+EOF
+
+python3 "$ROOT/tools/oai_snpn/check_rfsim_snpn_logs.py" \
+  --mode positive \
+  --ue-log "$TMP/ue-positive.log" \
+  --amf-log "$TMP/amf-stale-reject-before-positive.log"
+
+echo "PASS_RFSIM_LOG_SESSION_CORRELATION"
