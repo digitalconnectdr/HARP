@@ -37,27 +37,27 @@ if ! git -C "$OAI" cat-file -e "$OAI_ANCHOR^{commit}" 2>/dev/null; then
 fi
 
 TMP_ROOT="$(mktemp -d)"
-WT="$TMP_ROOT/oai"
+CLONE="$TMP_ROOT/oai"
 cleanup() {
-  git -C "$OAI" worktree remove --force "$WT" >/dev/null 2>&1 || true
   rm -rf "$TMP_ROOT"
 }
 trap cleanup EXIT
 
-echo "[HARP] creating disposable OAI worktree at pinned commit..."
-git -C "$OAI" worktree add --detach "$WT" "$OAI_ANCHOR"
+echo "[HARP] creating disposable local clone at pinned commit..."
+git clone --no-hardlinks --no-checkout "$OAI" "$CLONE"
+git -C "$CLONE" checkout --detach "$OAI_ANCHOR"
 
 echo "[HARP] building official OAI Ubuntu 24.04 dependency image..."
 docker build \
   --build-arg TARGETARCH="$TARGETARCH" \
-  --file "$WT/docker/Dockerfile.base.ubuntu" \
+  --file "$CLONE/docker/Dockerfile.base.ubuntu" \
   --tag "$IMAGE_NAME" \
-  "$WT"
+  "$CLONE"
 
-echo "[HARP] running pre-RFsim SNPN gates inside disposable worktree..."
+echo "[HARP] running pre-RFsim SNPN gates inside disposable clone..."
 docker run --rm \
   -e HARP_ASN1C_EXEC=/opt/asn1c/bin/asn1c \
-  -v "$WT:/workspace/oai" \
+  -v "$CLONE:/workspace/oai" \
   -v "$HARP:/workspace/harp:ro" \
   -w /workspace/harp \
   "$IMAGE_NAME" \
