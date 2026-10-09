@@ -17,6 +17,15 @@ fi
 OAI="$(cd "$1" && pwd)"
 HARP="$(cd "$(dirname "$0")/../.." && pwd)"
 
+case "$(uname -m)" in
+  x86_64) TARGETARCH=amd64 ;;
+  aarch64|arm64) TARGETARCH=arm64 ;;
+  *)
+    echo "ERROR: unsupported host architecture for OAI Ubuntu image: $(uname -m)" >&2
+    exit 2
+    ;;
+esac
+
 if ! git -C "$OAI" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   echo "ERROR: not an OAI git checkout/worktree: $OAI" >&2
   exit 3
@@ -40,6 +49,7 @@ git -C "$OAI" worktree add --detach "$WT" "$OAI_ANCHOR"
 
 echo "[HARP] building official OAI Ubuntu 24.04 dependency image..."
 docker build \
+  --build-arg TARGETARCH="$TARGETARCH" \
   --file "$WT/docker/Dockerfile.base.ubuntu" \
   --tag "$IMAGE_NAME" \
   "$WT"
