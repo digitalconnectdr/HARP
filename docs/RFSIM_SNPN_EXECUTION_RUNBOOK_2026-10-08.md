@@ -427,3 +427,37 @@ PASS_RFSIM_LOG_PLMN_MISMATCH_REJECTED
 
 These remain checker-logic tests only; they are not RFsim authentication PASS
 evidence.
+
+
+## 11. Causal-order requirements
+
+Within the current AMF SNPN session:
+
+Positive mode rejects the log if an authentication rejection appears after the
+current SNN, even when an authentication PASS is also present.
+
+When `--require-registration` is used, the registration marker must occur
+after authentication success:
+
+```
+HARP_SNPN_AMF_SNN
+        ->
+PASS_V5G_SNPN_AUTH_AMF
+        ->
+PASS_V5G_SNPN_REGISTERED_AMF
+```
+
+The checker rejects:
+
+```
+AUTH PASS + AUTH REJECT in the same current session
+REGISTERED before AUTH PASS
+```
+
+Synthetic self-test marker:
+
+```
+PASS_RFSIM_LOG_CAUSAL_ORDER_REJECTED
+```
+
+This marker validates checker logic only; it is not RFsim evidence.
