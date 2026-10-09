@@ -45,7 +45,7 @@ if grep -Eq '^[+-U]' <<<"$SUBMODULE_STATUS"; then
   exit 6
 fi
 
-for required in src/common-src build/common-build; do
+for required in src/common-src build/common-build ci-scripts/common; do
   if [ ! -d "$AMF/$required" ] || [ -z "$(ls -A "$AMF/$required" 2>/dev/null || true)" ]; then
     echo "ERROR: required initialized AMF submodule/content missing: $required" >&2
     exit 6
@@ -67,10 +67,14 @@ echo "[HARP] applying AMF SNPN blueprints to disposable clone..."
 bash "$HARP/tools/oai_amf_snpn/apply_amf_blueprints.sh" "$CLONE"
 
 echo "[HARP] copying pinned initialized submodule contents without Git metadata..."
-for required in src/common-src build/common-build; do
+for required in src/common-src build/common-build ci-scripts/common; do
   mkdir -p "$CLONE/$required"
   tar -C "$AMF/$required" --exclude=.git -cf - . | tar -C "$CLONE/$required" -xf -
 done
+
+echo "[HARP] removing Git metadata from disposable Docker context..."
+rm -rf "$CLONE/.git"
+rm -f "$CLONE/.gitmodules"
 
 echo "[HARP] building official AMF Ubuntu 24.04 builder image..."
 docker build \
