@@ -18,31 +18,35 @@ OAI="$(cd "$1" && pwd)"
 HARP="$(cd "$(dirname "$0")/../.." && pwd)"
 
 if ! git -C "$OAI" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  echo "ERROR: not an OAI git checkout: $OAI" >&2
+  echo "ERROR: not an OAI git checkout/worktree: $OAI" >&2
   exit 3
 fi
 
-HEAD="$(git -C "$OAI" rev-parse HEAD)"
-if [ "$HEAD" != "$OAI_ANCHOR" ]; then
-  echo "ERROR: OAI checkout must be pinned to $OAI_ANCHOR" >&2
-  echo "       current HEAD: $HEAD" >&2
+if ! git -C "$OAI" cat-file -e "$OAI_ANCHOR^{commit}" 2>/dev/null; then
+  echo "ERROR: pinned OAI commit is not present locally: $OAI_ANCHOR" >&2
   exit 4
 fi
 
-if [ -n "$(git -C "$OAI" status --porcelain)" ]; then
-  echo "ERROR: OAI checkout must be clean before container build/test." >&2
-  exit 5
-fi
+TMP_ROOT="$(mktemp -d)"
+WT="$TMP_ROOT/oai"
+cleanup() {
+  git -C "$OAI" worktree remove --force "$WT" >/dev/null 2>&1 || true
+  rm -rf "$TMP_ROOT"
+}
+trap cleanup EXIT
+
+echo "[HARP] creating disposable OAI worktree at pinned commit..."
+git -C "$OAI" worktree add --detach "$WT" "$OAI_ANCHOR"
 
 echo "[HARP] building official OAI Ubuntu 24.04 dependency image..."
 docker build \
-  --file "$OAI/docker/Dockerfile.base.ubuntu" \
+  --file "$WT/docker/Dockerfile.base.ubuntu" \
   --tag "$IMAGE_NAME" \
-  "$OAI"
+  "$WT"
 
-echo "[HARP] running pre-RFsim SNPN gates inside container..."
+echo "[HARP] running pre-RFsim SNPN gates inside disposable worktree..."
 docker run --rm \
-  -v "$OAI:/workspace/oai" \
+  -v "$WT:/workspace/oai" \
   -v "$HARP:/workspace/harp:ro" \
   -w /workspace/harp \
   "$IMAGE_NAME" \
