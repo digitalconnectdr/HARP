@@ -222,8 +222,10 @@ diff --git a/openair2/RRC/NR_UE/rrc_UE.c b/openair2/RRC/NR_UE/rrc_UE.c
 -          || seen_plmn.mnc_digit_length != target_plmn.mnc_digit_length)
 -        continue;
 -
+-      const struct NR_NPN_Identity_r16__snpn_r16 *snpn =
+-          identity->choice.snpn_r16;
 -      const struct NR_NPN_Identity_r16__snpn_r16__nid_List_r16 *nids =
--          &identity->choice.snpn_r16->nid_List_r16;
+-          &snpn->nid_List_r16;
 -      for (int k = 0; k < nids->list.count; ++k) {
 -        uint64_t seen_nid = 0;
 -        if (!harp_decode_nid44(nids->list.array[k], &seen_nid))
