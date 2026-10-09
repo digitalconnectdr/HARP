@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-07  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `40d9294f150b9798ac1b8452259aa875da17d07a`
+**Baseline commit reviewed through:** `c4aec7b73283bb07a91767b6597d58c59e266546`
 
 ## 1. Product objective
 
@@ -1731,5 +1731,83 @@ real AMF compile                      PENDING
 RFsim                                 PENDING
 ```
 
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 35. RFsim log correlation hardened to session + PLMN + causality — 2026-10-09
+
+RFsim log validation was tightened before any real RFsim execution.
+
+Session correlation:
+
+- `a5f3c60175621622db88cf1a322c65ec8c8603d3`:
+  the checker now uses the last UE SNPN selection and last AMF SNPN SNN, and
+  only accepts auth/register/reject markers occurring after the current AMF
+  SNN event.
+- stale success/reject markers from earlier sessions are therefore ignored.
+
+Self-test additions:
+
+- `379e95b090e760be29232eb6bfdf147d9e3cc5ab`:
+  stale-positive-before-negative and stale-reject-before-positive fixtures.
+
+PLMN binding:
+
+- `ed0cef9422b1570dd698be7ef77c8d8ce0e13199`:
+  the checker now requires UE-selected MCC/MNC to equal the MCC/MNC encoded in
+  the AMF SNN, comparing them numerically so UE MNC `99` matches canonical
+  SNN MNC `099`.
+- `afb607f4004df6d833b073013520ed9b4de7caf1`:
+  self-test rejects correct-NID/wrong-PLMN logs.
+
+Causal ordering:
+
+- `af0ea410e7c7a1e4d10c80ef38305d36c873e98d`:
+  positive mode now rejects any authentication-rejection marker after the
+  current SNN, even if auth PASS also appears;
+  when full registration is required, REGISTERED must occur after AUTH PASS.
+- `e974dff43a6dc0de70c795911ee2a696459a16d8`:
+  fixtures cover contradictory auth/reject and registration-before-auth cases.
+
+Current synthetic checker-only markers:
+
+```
+PASS_RFSIM_SNPN_LOG_CHECKER_SELFTEST
+PASS_RFSIM_LOG_SESSION_CORRELATION
+PASS_RFSIM_LOG_PLMN_MISMATCH_REJECTED
+PASS_RFSIM_LOG_CAUSAL_ORDER_REJECTED
+```
+
+These are not real RFsim PASS markers.
+
+Real positive evidence will require, in one current session:
+
+```
+UE SELECT PLMN/NID
+        |
+AMF SNN same PLMN/NID
+        |
+PASS_V5G_SNPN_AUTH_AMF
+        |
+PASS_V5G_SNPN_KDF_LAB
+```
+
+Real negative evidence will require:
+
+```
+UE SELECT NID=10000000001
+        |
+AMF SNN NID=10000000002
+        |
+no AUTH PASS
+no REGISTERED
+        |
+HARP_SNPN_AUTH_REJECT_AMF
+        |
+PASS_V5G_SNPN_KDF_NEGATIVE
+```
+
+No real RFsim PASS is claimed yet.
 No GitHub Actions were used.
 No phone installation is required yet.
