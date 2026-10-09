@@ -292,3 +292,48 @@ PASS_HARP_OAI_SNPN_PRE_RFSIM_GATES
 ```
 
 This marker is stronger than blueprint applicability but still precedes RFsim registration/authentication.
+
+
+## Independent SNPN KDF reference gate
+
+Reference checker:
+
+```
+tools/oai_snpn/kdf_reference.py
+```
+
+It independently recalculates the same TS 33.501 HMAC-SHA-256 inputs used by the staged OAI UE tests.
+
+Verified vectors:
+
+```
+baseline SNN:
+5G:mnc015.mcc234.3gppnetwork.org
+
+SNPN:
+5G:mnc099.mcc999.3gppnetwork.org:10000000001
+
+mismatched SNPN:
+5G:mnc099.mcc999.3gppnetwork.org:10000000002
+```
+
+It checks exact `RES*`, `K_AUSF`, and `K_SEAF` bytes and confirms that changing only the NID changes all three outputs.
+
+Success marker:
+
+```
+PASS_V5G_SNPN_KDF_REFERENCE
+```
+
+The checker also audits the exact OAI KDF input lengths for the HARP SNN:
+
+```
+SNN                  44 bytes
+RES* KDF input       75 bytes
+K_AUSF KDF input     55 bytes
+K_SEAF KDF input     47 bytes
+```
+
+All fit within the existing 100-byte OAI KDF work buffers.
+
+Patch `0002` was hardened so each KDF caller passes its actual remaining buffer size directly to `nr_format_serving_network_name()`; the old static fixed-size wrapper is removed.
