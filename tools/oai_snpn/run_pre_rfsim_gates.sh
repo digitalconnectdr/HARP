@@ -33,8 +33,8 @@ fi
 echo "[HARP] validating independent SNPN KDF reference vectors..."
 python3 "$ROOT/tools/oai_snpn/kdf_reference.py"
 
-echo "[HARP] validating OAI blueprints..."
-bash "$ROOT/tools/oai_snpn/apply_oai_blueprints.sh" "$CHECKOUT" --check
+echo "[HARP] validating full OAI blueprint chain..."
+bash "$ROOT/tools/oai_snpn/check_full_blueprint_chain.sh" "$CHECKOUT"
 
 echo "[HARP] applying OAI blueprints..."
 bash "$ROOT/tools/oai_snpn/apply_oai_blueprints.sh" "$CHECKOUT"
