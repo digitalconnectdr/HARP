@@ -46,7 +46,7 @@ Negative AMF NID:
 RAN:
 
 ```bash
-tools/oai_snpn/run_pre_rfsim_gates.sh /path/to/openairinterface5g
+bash tools/oai_snpn/run_pre_rfsim_gates.sh /path/to/openairinterface5g
 ```
 
 Required final marker:
@@ -58,7 +58,7 @@ PASS_HARP_OAI_SNPN_PRE_RFSIM_GATES
 AMF:
 
 ```bash
-tools/oai_amf_snpn/run_amf_build_gate.sh /path/to/oai-cn5g-amf
+bash tools/oai_amf_snpn/run_amf_build_gate.sh /path/to/oai-cn5g-amf
 ```
 
 Required final marker:
