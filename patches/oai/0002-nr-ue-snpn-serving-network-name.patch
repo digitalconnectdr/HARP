@@ -56,8 +56,7 @@ diff --git a/openair3/NAS/NR_UE/nr_nas_msg.c b/openair3/NAS/NR_UE/nr_nas_msg.c
  static void servingNetworkName(uint8_t *msg, const nr_serving_network_id_t *sn)
  {
    AssertFatal(
--      nr_format_serving_network_name((char *)msg, 64, sn),
-+      nr_format_serving_network_name((char *)msg, 80, sn),
+       nr_format_serving_network_name((char *)msg, 64, sn),
        "Could not format serving network name");
  }
 
@@ -201,3 +200,52 @@ diff --git a/openair3/NAS/NR_UE/5GS/tests/nas_lib_test.c b/openair3/NAS/NR_UE/5G
 +  test_serving_network_name_snpn();
 +  test_serving_network_kdf_snpn();
    test_regression_registration_accept();
+
+diff --git a/openair3/NAS/NR_UE/nr_nas_msg.c b/openair3/NAS/NR_UE/nr_nas_msg.c
+--- a/openair3/NAS/NR_UE/nr_nas_msg.c
++++ b/openair3/NAS/NR_UE/nr_nas_msg.c
+@@
+ void transferRES(uint8_t ck[16],
+                  uint8_t ik[16],
+                  uint8_t *input,
+                  uint8_t rand[16],
+                  uint8_t *output,
+                  const nr_serving_network_id_t *serving_network)
+ {
+   uint8_t S[100] = {0};
+   S[0] = 0x6B;
+-  servingNetworkName(S + 1, serving_network);
++  AssertFatal(
++      nr_format_serving_network_name(
++          (char *)S + 1, sizeof(S) - 1, serving_network),
++      "Could not format serving network name");
+@@
+ void derive_kausf(uint8_t ck[16],
+                   uint8_t ik[16],
+                   uint8_t sqn[6],
+                   uint8_t kausf[32],
+                   const nr_serving_network_id_t *serving_network)
+ {
+   uint8_t S[100] = {0};
+   uint8_t key[32] = {0};
+@@
+   memcpy(&key[0], ck, 16);
+   memcpy(&key[16], ik, 16); // KEY
+   S[0] = 0x6A;
+-  servingNetworkName(S + 1, serving_network);
++  AssertFatal(
++      nr_format_serving_network_name(
++          (char *)S + 1, sizeof(S) - 1, serving_network),
++      "Could not format serving network name");
+@@
+ void derive_kseaf(uint8_t kausf[32],
+                   uint8_t kseaf[32],
+                   const nr_serving_network_id_t *serving_network)
+ {
+   uint8_t S[100] = {0};
+   S[0] = 0x6C; // FC
+-  servingNetworkName(S + 1, serving_network);
++  AssertFatal(
++      nr_format_serving_network_name(
++          (char *)S + 1, sizeof(S) - 1, serving_network),
++      "Could not format serving network name");
