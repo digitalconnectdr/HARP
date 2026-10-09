@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-07  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `54ededd46123e99ec6e6a4c4fa24ed35ce8da0aa`
+**Baseline commit reviewed through:** `ab092c9c50b80082c2843e7d0aa96135292c85c2`
 
 ## 1. Product objective
 
@@ -1250,5 +1250,120 @@ Important experimental control:
 The AMF increments MySQL SQN during authentication. Therefore `harp_subscriber.sql` must be re-imported before **each** positive or negative run, and AMF/nrUE must restart. Otherwise an SQN synchronization failure could be misattributed to the NID mismatch.
 
 No real RFsim PASS marker has been claimed yet.
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 30. Independent KDF verification + SNN buffer hardening — 2026-10-08
+
+Independent KDF recalculation was performed outside the OAI test implementation using HMAC-SHA-256 and the same TS 33.501 FC/parameter layout.
+
+Exact baseline vectors matched the staged C regression test:
+
+```
+RES*   e5c9b031ea670bc494e4db45fb1cf267
+KAUSF  1789cd7d88b07b803330574544da1bfcb52c67ec14b4075b4b36d262d773dc83
+KSEAF  e40038b02ad5457c40f27f92e92bdd735c7720287ecbd7ff304f7751d7bf2191
+```
+
+Exact HARP SNPN NID `10000000001` vectors also matched:
+
+```
+RES*   4a880d868e07cb3ad0a3ef39b21eebe5
+KAUSF  742c95dd9003e1c6c148236f5f8c9f9f2b89b02b2d898d989d4de00189ff5626
+KSEAF  a19ff0f63a0093d859f72233688e472a3283493bc2e852f030d9de7aaf9e93b4
+```
+
+Changing only the NID to `10000000002` produced different values for all three:
+
+```
+RES*   b941a7b510507edd235d2fbad30fde03
+KAUSF  aaf0234ed414af2f91be9a736f163af77451e6f2bf5b7cb5a34bd85d10674d0b
+KSEAF  18082e6da076b999a51713098bf9ee0bc66ad6e6163683aff70608cd334fb46b
+```
+
+This establishes a source-independent reference invariant:
+
+```
+same CK/IK/RAND/SQN + different NID
+        ->
+different RES*
+different K_AUSF
+different K_SEAF
+```
+
+Commit `0e5f2240e9e0d6b78770826d5cfa0ddfc8dc07f3` adds:
+
+```
+tools/oai_snpn/kdf_reference.py
+```
+
+with marker:
+
+```
+PASS_V5G_SNPN_KDF_REFERENCE
+```
+
+SNN/buffer audit:
+
+```
+HARP SNPN SNN length = 44
+RES* input           = 75
+K_AUSF input         = 55
+K_SEAF input         = 47
+OAI work buffer      = 100
+```
+
+Commits:
+
+- `100d2701b7b5337ff4cd790ccf125ca8034e87f1`: each KDF caller now passes the actual `sizeof(S)-1` capacity to the formatter;
+- `665f07dabb2410dbf53eab3bc9e37bdf14df2359`: obsolete fixed-size static SNN wrapper removed.
+
+The early patch chain was revalidated after these changes:
+
+```
+0001 -> 0001b -> 0001c -> 0002
+37/37 hunks
+0 failures
+```
+
+NID encoding cross-check remains consistent:
+
+```
+10000000001
+ -> bytes 10 00 00 00 00 10
+ -> size=6
+ -> bits_unused=4
+ -> decoder returns 10000000001
+```
+
+The gNB fixture syntax was checked against `0003a` and matches exactly:
+
+```
+snpn = {
+  enabled = "yes";
+  nid = "10000000001";
+};
+```
+
+AMF parser/formatter audit confirms:
+
+- YAML NID is read as a string;
+- exactly 11 hexadecimal digits required;
+- parsed base 16;
+- capped at 44 bits;
+- stored as `std::optional<uint64_t>`;
+- formatter argument order is `(mnc, mcc, nid)`;
+- HARP SNN is identical to the UE canonical string.
+
+Runner hardening:
+
+- `74cf9641fd1503ba851a4b59a8e1bcbf634de25d` attempted to add independent KDF/test-registration checks but a text replacement corrupted the shell block;
+- this was immediately detected before any execution;
+- `ee880edad4cbebdf5820ce0cf837db6b24007dca` repaired the runner cleanly;
+- current runner verifies exactly 3 focused CTest entries before execution and runs the independent KDF reference checker first.
+
+No real OAI/AMF build PASS is claimed yet.
+No RFsim PASS is claimed yet.
 No GitHub Actions were used.
 No phone installation is required yet.
