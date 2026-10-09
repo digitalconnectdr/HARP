@@ -46,7 +46,8 @@ bash "$ROOT/tools/oai_amf_snpn/apply_amf_blueprints.sh" "$CHECKOUT"
 echo "[HARP] configuring AMF build..."
 export OPENAIRCN_DIR="$CHECKOUT"
 cmake -S "$CHECKOUT/build/amf" -B "$BUILD_DIR" -GNinja \
-  -DCMAKE_BUILD_TYPE=Release
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_SHARED_LIBS=OFF
 
 echo "[HARP] building AMF target..."
 cmake --build "$BUILD_DIR" --target amf
