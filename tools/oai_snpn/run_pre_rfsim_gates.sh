@@ -12,8 +12,8 @@ CHECKOUT="$(cd "$1" && pwd)"
 BUILD_DIR="${2:-$CHECKOUT/build-harp-snpn}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 
-if [ ! -d "$CHECKOUT/.git" ]; then
-  echo "ERROR: not a git checkout: $CHECKOUT" >&2
+if ! git -C "$CHECKOUT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "ERROR: not a git worktree/checkout: $CHECKOUT" >&2
   exit 2
 fi
 
