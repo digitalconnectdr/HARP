@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-07  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `a56adf3d211ed1432dda4126691fe9b999d91a4d`
+**Baseline commit reviewed through:** `6be08b8b36336a583ec9f33edc0034b6e90e865d`
 
 ## 1. Product objective
 
@@ -1025,6 +1025,73 @@ docs/OAI_BLUEPRINT_CHAIN_VALIDATION_2026-10-08.md
 ```
 
 These are context-applicability PASS markers only. Compilation, CMake linkage, generated-header compile, unit test execution, RFsim, and authentication remain pending.
+
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 27. Minimal local OAI build/test runner — 2026-10-08
+
+Commit `d28d66eae46f6093830c39cb42d097a411ea584a` adds:
+
+```
+tools/oai_snpn/run_pre_rfsim_gates.sh
+```
+
+The runner is intentionally local/manual and does not use GitHub Actions.
+
+It requires a clean disposable OAI checkout pinned to:
+
+```
+f8f769592a7030be88ede4bb5ca66fa1ca6a80e0
+```
+
+It then:
+
+```
+blueprint --check
+    |
+apply blueprints
+    |
+cmake -DENABLE_TESTS=ON -DSANITIZE_ADDRESS=OFF
+    |
+build only:
+  nas_lib_test
+  test_asn1_msg
+  test_snpn_sib1_codec
+    |
+focused ctest
+    |
+verify HARP PASS markers
+```
+
+Required markers:
+
+```
+PASS_V5G_SNN_FORMAT_BASELINE
+PASS_V5G_SNN_REFACTOR_BASELINE
+PASS_V5G_SNPN_SNN
+PASS_V5G_SNPN_KDF_UE
+PASS_V5G_SNPN_NPN_CODEC
+PASS_V5G_SNPN_NPN_CODEC_NEGATIVE
+PASS_V5G_SNPN_CELL_ACCESS_CODEC
+PASS_V5G_SNPN_SELECT_UNIT
+PASS_V5G_SNPN_SIB1_CODEC
+```
+
+Final local pre-RFsim marker:
+
+```
+PASS_HARP_OAI_SNPN_PRE_RFSIM_GATES
+```
+
+CMake audit confirms:
+
+- top-level OAI includes `tests/` when `ENABLE_TESTS=ON`;
+- `tests/CMakeLists.txt` includes `nrdlbench`;
+- therefore the staged `test_snpn_sib1_codec` target is reachable in the intended configuration.
+
+This runner has not yet been executed in the current environment because no OAI checkout/build dependency set is available locally.
 
 No GitHub Actions were used.
 No phone installation is required yet.
