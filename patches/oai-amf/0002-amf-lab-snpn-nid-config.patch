@@ -142,3 +142,27 @@ diff --git a/etc/config.yaml b/etc/config.yaml
 +  # HARP lab-only SNPN identity. Leave absent/empty for ordinary PLMN behavior.
 +  # snpn_nid: "10000000001"
    # This really depends on if we want to keep the "mini" version or not
+
+diff --git a/src/amf-app/amf_n1.cpp b/src/amf-app/amf_n1.cpp
+--- a/src/amf-app/amf_n1.cpp
++++ b/src/amf-app/amf_n1.cpp
+@@
+   } else {
+     Logger::amf_n1().debug("Authentication successful by network!");
++    if (amf_cfg->snpn_nid.has_value()) {
++      Logger::amf_n1().info(
++          "PASS_V5G_SNPN_AUTH_AMF nid=%011llX",
++          (unsigned long long) amf_cfg->snpn_nid.value());
++    }
+     // Update NAS State machine
+     nas_procedure_manager_.complete_common_procedure(*nc);
+@@
+   event_sub.ue_registration_state(
+       nc->supi, _5GMM_REGISTERED, ran_ue_ngap_id, amf_ue_ngap_id);
++  if (amf_cfg->snpn_nid.has_value()) {
++    Logger::amf_n1().info(
++        "PASS_V5G_SNPN_REGISTERED_AMF nid=%011llX",
++        (unsigned long long) amf_cfg->snpn_nid.value());
++  }
+ 
+   // Check follow-on-request indicator
