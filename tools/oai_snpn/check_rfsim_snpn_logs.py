@@ -36,15 +36,6 @@ def main() -> None:
     ap.add_argument("--amf-log", required=True)
     ap.add_argument("--expected-ue-nid", default="10000000001")
     ap.add_argument("--expected-amf-nid")
-    ap.add_argument(
-        "--auth-success-marker",
-        action="append",
-        default=[
-            "Registration accept",
-            "5GMM-REGISTERED",
-            "Registration complete",
-        ],
-    )
     args = ap.parse_args()
 
     ue = read(args.ue_log)
@@ -66,24 +57,32 @@ def main() -> None:
     if amf_nid != expected_amf:
         fail(f"AMF NID {amf_nid}, expected {expected_amf}")
 
-    success_seen = any(marker in ue or marker in amf for marker in args.auth_success_marker)
+    auth_marker = f"PASS_V5G_SNPN_AUTH_AMF nid={amf_nid}"
+    registered_marker = f"PASS_V5G_SNPN_REGISTERED_AMF nid={amf_nid}"
+    auth_seen = auth_marker in amf
+    registered_seen = registered_marker in amf
 
     print(f"UE_NID={ue_nid}")
     print(f"AMF_NID={amf_nid}")
     print(f"AMF_SNN={amf_snn}")
+    print(f"AUTH_MARKER_SEEN={int(auth_seen)}")
+    print(f"REGISTERED_MARKER_SEEN={int(registered_seen)}")
 
     if args.mode == "positive":
         if ue_nid != amf_nid:
             fail("positive mode requires identical UE and AMF NID")
-        if not success_seen:
-            fail("positive mode did not find an authentication/registration success marker")
+        if not auth_seen:
+            fail(f"missing exact AMF authentication marker: {auth_marker}")
+        print("PASS_V5G_SNPN_AUTH")
+        if not registered_seen:
+            fail(f"missing exact AMF registration marker: {registered_marker}")
         print("PASS_V5G_SNPN_KDF_LAB")
         return
 
     if ue_nid == amf_nid:
         fail("negative mode requires mismatched UE and AMF NID")
-    if success_seen:
-        fail("negative mode unexpectedly found authentication/registration success")
+    if auth_seen or registered_seen:
+        fail("negative mode unexpectedly reached SNPN authentication/registration success")
     print("PASS_V5G_SNPN_KDF_NEGATIVE")
 
 
