@@ -29,8 +29,8 @@ def last(pattern, text, label):
     return matches[-1]
 
 
-def seen_after(text: str, marker: str, offset: int) -> bool:
-    return text.find(marker, offset) != -1
+def position_after(text: str, marker: str, offset: int) -> int:
+    return text.find(marker, offset)
 
 
 def main() -> None:
@@ -80,9 +80,12 @@ def main() -> None:
     registered_marker = f"PASS_V5G_SNPN_REGISTERED_AMF nid={amf_nid}"
     reject_marker = f"HARP_SNPN_AUTH_REJECT_AMF nid={amf_nid}"
     session_offset = amf_line.end()
-    auth_seen = seen_after(amf, auth_marker, session_offset)
-    registered_seen = seen_after(amf, registered_marker, session_offset)
-    reject_seen = seen_after(amf, reject_marker, session_offset)
+    auth_pos = position_after(amf, auth_marker, session_offset)
+    registered_pos = position_after(amf, registered_marker, session_offset)
+    reject_pos = position_after(amf, reject_marker, session_offset)
+    auth_seen = auth_pos != -1
+    registered_seen = registered_pos != -1
+    reject_seen = reject_pos != -1
 
     print(f"UE_PLMN={ue_mcc}/{ue_mnc}")
     print(f"AMF_PLMN={amf_mcc}/{amf_mnc}")
@@ -98,11 +101,15 @@ def main() -> None:
             fail("positive mode requires identical UE and AMF NID")
         if not auth_seen:
             fail(f"missing exact AMF authentication marker: {auth_marker}")
+        if reject_seen:
+            fail("positive mode contains an authentication rejection after the current SNN")
         print("PASS_V5G_SNPN_AUTH")
         print("PASS_V5G_SNPN_KDF_LAB")
         if args.require_registration:
             if not registered_seen:
                 fail(f"missing exact AMF registration marker: {registered_marker}")
+            if registered_pos < auth_pos:
+                fail("registration marker appears before authentication success")
             print("PASS_V5G_SNPN_REGISTERED")
         return
 
