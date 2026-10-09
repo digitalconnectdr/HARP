@@ -20,6 +20,31 @@ python3 "$ROOT/tools/oai_snpn/check_rfsim_snpn_logs.py" \
   --ue-log "$TMP/ue-positive.log" \
   --amf-log "$TMP/amf-positive.log"
 
+python3 "$ROOT/tools/oai_snpn/check_rfsim_snpn_logs.py" \
+  --mode positive \
+  --require-registration \
+  --ue-log "$TMP/ue-positive.log" \
+  --amf-log "$TMP/amf-positive.log"
+
+cat >"$TMP/amf-auth-only.log" <<'EOF'
+HARP_SNPN_AMF_SNN 5G:mnc099.mcc999.3gppnetwork.org:10000000001
+PASS_V5G_SNPN_AUTH_AMF nid=10000000001
+EOF
+
+python3 "$ROOT/tools/oai_snpn/check_rfsim_snpn_logs.py" \
+  --mode positive \
+  --ue-log "$TMP/ue-positive.log" \
+  --amf-log "$TMP/amf-auth-only.log"
+
+if python3 "$ROOT/tools/oai_snpn/check_rfsim_snpn_logs.py" \
+  --mode positive \
+  --require-registration \
+  --ue-log "$TMP/ue-positive.log" \
+  --amf-log "$TMP/amf-auth-only.log"; then
+  echo "ERROR: registration-required gate accepted auth-only log" >&2
+  exit 1
+fi
+
 cat >"$TMP/ue-negative.log" <<'EOF'
 PASS_V5G_SNPN_SELECT mcc=999 mnc=99 nid=10000000001
 EOF
