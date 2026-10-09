@@ -8,6 +8,25 @@ fi
 
 CHECKOUT="$1"
 shift
+
+EXPECTED_HEAD="f8f769592a7030be88ede4bb5ca66fa1ca6a80e0"
+
+if ! git -C "$CHECKOUT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "ERROR: not a Git worktree/checkout: $CHECKOUT" >&2
+  exit 3
+fi
+
+HEAD="$(git -C "$CHECKOUT" rev-parse HEAD)"
+if [ "$HEAD" != "$EXPECTED_HEAD" ]; then
+  echo "ERROR: OAI checkout must be pinned to $EXPECTED_HEAD" >&2
+  echo "       current HEAD: $HEAD" >&2
+  exit 4
+fi
+
+if [ -n "$(git -C "$CHECKOUT" status --porcelain)" ]; then
+  echo "ERROR: OAI checkout must be clean before blueprint application." >&2
+  exit 5
+fi
 MODE=()
 if [ "${1:-}" = "--check" ]; then
   MODE=(--check)
