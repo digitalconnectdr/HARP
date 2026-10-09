@@ -51,6 +51,8 @@ def main() -> None:
     amf = read(args.amf_log)
 
     sel = last(SELECT_RE, ue, "UE PASS_V5G_SNPN_SELECT")
+    ue_mcc = sel.group("mcc")
+    ue_mnc = sel.group("mnc")
     ue_nid = sel.group("nid").upper()
     if ue_nid != args.expected_ue_nid.upper():
         fail(f"UE selected NID {ue_nid}, expected {args.expected_ue_nid.upper()}")
@@ -61,7 +63,15 @@ def main() -> None:
     if not sm:
         fail(f"AMF SNN is not canonical SNPN form: {amf_snn}")
 
+    amf_mcc = sm.group("mcc")
+    amf_mnc = sm.group("mnc")
     amf_nid = sm.group("nid").upper()
+    if int(amf_mcc) != int(ue_mcc) or int(amf_mnc) != int(ue_mnc):
+        fail(
+            f"PLMN mismatch: UE selected {ue_mcc}/{ue_mnc}, "
+            f"AMF SNN carries {amf_mcc}/{amf_mnc}"
+        )
+
     expected_amf = (args.expected_amf_nid or args.expected_ue_nid).upper()
     if amf_nid != expected_amf:
         fail(f"AMF NID {amf_nid}, expected {expected_amf}")
@@ -74,6 +84,8 @@ def main() -> None:
     registered_seen = seen_after(amf, registered_marker, session_offset)
     reject_seen = seen_after(amf, reject_marker, session_offset)
 
+    print(f"UE_PLMN={ue_mcc}/{ue_mnc}")
+    print(f"AMF_PLMN={amf_mcc}/{amf_mnc}")
     print(f"UE_NID={ue_nid}")
     print(f"AMF_NID={amf_nid}")
     print(f"AMF_SNN={amf_snn}")
