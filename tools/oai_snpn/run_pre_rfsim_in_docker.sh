@@ -56,6 +56,7 @@ docker build \
 
 echo "[HARP] running pre-RFsim SNPN gates inside disposable worktree..."
 docker run --rm \
+  -e HARP_ASN1C_EXEC=/opt/asn1c/bin/asn1c \
   -v "$WT:/workspace/oai" \
   -v "$HARP:/workspace/harp:ro" \
   -w /workspace/harp \
