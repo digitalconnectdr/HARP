@@ -354,3 +354,33 @@ PASS_HARP_SNPN_STANDALONE_SUITE
 ```
 
 The suite covers NID44 encode/decode, UE SNN formatting, AMF SNN formatting, UE↔AMF canonical SNN equality, and the independent KDF reference vectors.
+
+
+## Docker pre-RFsim runner
+
+For a Linux host with Docker and Internet access, the OAI dependency/build
+environment can be reproduced from the pinned upstream Dockerfile:
+
+```bash
+bash tools/oai_snpn/run_pre_rfsim_in_docker.sh /path/to/openairinterface5g
+```
+
+The runner:
+
+1. requires the pinned OAI commit to be present locally;
+2. creates a self-contained disposable local clone at that commit;
+3. builds the upstream `docker/Dockerfile.base.ubuntu` image (Ubuntu 24.04);
+4. explicitly maps host architecture to `amd64` or `arm64`;
+5. explicitly sets `HARP_ASN1C_EXEC=/opt/asn1c/bin/asn1c`;
+6. mounts the disposable clone read/write and HARP read-only;
+7. runs the focused pre-RFsim gate suite inside the container.
+
+Expected final marker:
+
+```
+PASS_HARP_OAI_SNPN_DOCKER_PRE_RFSIM
+```
+
+The disposable clone avoids modifying the user's primary OAI checkout.
+The Docker image build requires network access because the official OAI
+dependency image installs packages and source dependencies.
