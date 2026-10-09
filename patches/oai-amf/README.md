@@ -79,3 +79,30 @@ HARP_SNPN_AMF_SNN 5G:mnc099.mcc999.3gppnetwork.org:10000000001
 ```
 
 This log must appear before the authentication path is considered aligned with the UE. It is an observability marker only; it does not itself prove successful SNPN authentication.
+
+
+## Local AMF build gate
+
+Runner:
+
+```
+tools/oai_amf_snpn/run_amf_build_gate.sh /path/to/oai-cn5g-amf
+```
+
+Requirements:
+
+- checkout exactly at `5eedea557a3745b13ed9ec4bf29e6a28bd912574`;
+- clean worktree;
+- initialized `src/common-src` and `build/common-build`;
+- AMF native build dependencies installed;
+- no GitHub Actions.
+
+It validates/applies the HARP AMF blueprints, configures the upstream AMF CMake tree in Release mode and builds only the `amf` target.
+
+Success marker:
+
+```
+PASS_HARP_AMF_SNPN_BUILD
+```
+
+This proves compilation/link closure only. It does not prove startup, registration or authentication.
