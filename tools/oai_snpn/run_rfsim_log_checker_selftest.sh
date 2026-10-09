@@ -118,3 +118,34 @@ if python3 "$ROOT/tools/oai_snpn/check_rfsim_snpn_logs.py" \
 fi
 
 echo "PASS_RFSIM_LOG_PLMN_MISMATCH_REJECTED"
+
+cat >"$TMP/amf-positive-contradictory.log" <<'EOF'
+HARP_SNPN_AMF_SNN 5G:mnc099.mcc999.3gppnetwork.org:10000000001
+PASS_V5G_SNPN_AUTH_AMF nid=10000000001
+HARP_SNPN_AUTH_REJECT_AMF nid=10000000001
+EOF
+
+if python3 "$ROOT/tools/oai_snpn/check_rfsim_snpn_logs.py" \
+  --mode positive \
+  --ue-log "$TMP/ue-positive.log" \
+  --amf-log "$TMP/amf-positive-contradictory.log"; then
+  echo "ERROR: checker accepted contradictory positive auth/reject markers" >&2
+  exit 1
+fi
+
+cat >"$TMP/amf-registration-before-auth.log" <<'EOF'
+HARP_SNPN_AMF_SNN 5G:mnc099.mcc999.3gppnetwork.org:10000000001
+PASS_V5G_SNPN_REGISTERED_AMF nid=10000000001
+PASS_V5G_SNPN_AUTH_AMF nid=10000000001
+EOF
+
+if python3 "$ROOT/tools/oai_snpn/check_rfsim_snpn_logs.py" \
+  --mode positive \
+  --require-registration \
+  --ue-log "$TMP/ue-positive.log" \
+  --amf-log "$TMP/amf-registration-before-auth.log"; then
+  echo "ERROR: checker accepted registration before authentication success" >&2
+  exit 1
+fi
+
+echo "PASS_RFSIM_LOG_CAUSAL_ORDER_REJECTED"
