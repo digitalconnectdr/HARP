@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-07  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `ab092c9c50b80082c2843e7d0aa96135292c85c2`
+**Baseline commit reviewed through:** `e6346b7a8d86ee6b8daaedc17c4288283bfde988`
 
 ## 1. Product objective
 
@@ -1365,5 +1365,93 @@ Runner hardening:
 
 No real OAI/AMF build PASS is claimed yet.
 No RFsim PASS is claimed yet.
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 31. Standalone helpers compiled and executed locally — 2026-10-09
+
+The current environment provides:
+
+```
+cc
+c++
+cmake
+ninja
+python3
+git
+```
+
+but does not provide:
+
+```
+asn1c
+bison
+flex
+```
+
+Therefore full OAI ASN.1 generation/build remains blocked here, but the standalone HARP helpers can be compiled and executed.
+
+A real defect was found before compilation:
+
+- `tools/oai_snpn/nid44.c` contained a malformed literal `\\n\\n` in the include line;
+- it also duplicated `HARP_NID44_MAX` and `harp_bit_string_t`, already declared in `nid44.h`;
+- commit `35c0b8f45774057340418c9d485f3200df1edd44` fixes the source.
+
+Real local compilation/execution with warnings treated as errors produced:
+
+```
+PASS_NID44_VECTORS
+PASS_SNN_VECTORS
+PASS_AMF_SNN_VECTORS
+PASS_V5G_SNPN_KDF_REFERENCE
+PASS_UE_AMF_SNN_MATCH
+```
+
+Compiler settings:
+
+```
+C:   -std=c11   -Wall -Wextra -Werror
+C++: -std=c++17 -Wall -Wextra -Werror
+```
+
+These are actual standalone execution PASS markers, not static-context claims.
+
+Aggregate runner:
+
+- `1019c93a3ccd241d142751f4bad42995113eff36`
+- file: `tools/oai_snpn/run_standalone_suite.sh`
+- final intended marker:
+  `PASS_HARP_SNPN_STANDALONE_SUITE`.
+
+Repository executable-bit audit found all shell scripts are stored as mode `100644`. Direct nested execution would therefore fail on a normal checkout.
+
+The runners were hardened to invoke nested scripts explicitly through `bash`:
+
+- `cfdcec2874163f65da006cf03523d5d044d01ddb`: standalone suite;
+- `5213f8689155cff48cbdcafa2347d7c383b914f3`: OAI pre-RFsim runner;
+- `f571f1be28ee817488381274c6129092573cfc4c`: AMF build runner.
+
+Documentation commands were updated to use `bash <script>`:
+
+- `32dc517957a8206be499433a369ad85e0914b0e0`: OAI README;
+- `b66d921a87b0d44ce5679273769e762029381e8b`: AMF README;
+- `e6346b7a8d86ee6b8daaedc17c4288283bfde988`: RFsim runbook.
+
+Current execution frontier:
+
+```
+Standalone NID44                  PASS
+Standalone UE SNN                 PASS
+Standalone AMF SNN                PASS
+UE <-> AMF canonical SNN match    PASS
+Independent SNPN KDF reference    PASS
+
+OAI full compile                  PENDING
+AMF full compile                  PENDING
+RFsim positive                    PENDING
+RFsim mismatched-NID negative     PENDING
+```
+
 No GitHub Actions were used.
 No phone installation is required yet.
