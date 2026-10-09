@@ -38,10 +38,10 @@ for required in src/common-src build/common-build; do
 done
 
 echo "[HARP] validating AMF blueprints..."
-"$ROOT/tools/oai_amf_snpn/apply_amf_blueprints.sh" "$CHECKOUT" --check
+bash "$ROOT/tools/oai_amf_snpn/apply_amf_blueprints.sh" "$CHECKOUT" --check
 
 echo "[HARP] applying AMF blueprints..."
-"$ROOT/tools/oai_amf_snpn/apply_amf_blueprints.sh" "$CHECKOUT"
+bash "$ROOT/tools/oai_amf_snpn/apply_amf_blueprints.sh" "$CHECKOUT"
 
 echo "[HARP] configuring AMF build..."
 export OPENAIRCN_DIR="$CHECKOUT"
