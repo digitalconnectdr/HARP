@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-07  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `857cab4b83366c223fdc4d1df71b30ac609d07d7`
+**Baseline commit reviewed through:** `a310ab3e2be44070f0d0636f9d872eb5c2afe7fb`
 
 ## 1. Product objective
 
@@ -1516,6 +1516,102 @@ Infrastructure attempts:
 An alternate generated-parser source was investigated but rejected because its `asn1p_y.y` / `asn1p_l.l` blobs do not match the exact OAI-pinned `mouse07410/asn1c` grammar. No incompatible generated parser was substituted.
 
 Full OAI ASN.1 generation remains blocked by environment/toolchain availability, not by a known HARP source failure.
+
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 33. Local Docker build routes prepared — 2026-10-09
+
+A containerized path is now available to bypass the current environment's
+missing `bison`, `flex`, `asn1c`, and package-network limitations without
+using GitHub Actions.
+
+RAN/OAI Docker runner:
+
+- initial: `0585ac6b3362c5de58086b2134b54d87c2ad2444`;
+- disposable-worktree design: `c9e7460cc068d9c841ac8c416eede712f69a904d`;
+- explicit architecture mapping: `3162fa80684abc4ebfce290db0bb3911fe0009df`;
+- explicit ASN.1 compiler path support:
+  - `bd475ea6bdef6f4ac08d6b6ba8a36f564335d35d`,
+  - `f639d230e9f2e75ae191c313f9af193668a42352`;
+- final Git-mount correction:
+  `91356c7d132902d0c4de8e9136a6864d688cfdad`.
+
+File:
+
+```
+tools/oai_snpn/run_pre_rfsim_in_docker.sh
+```
+
+Important correction:
+
+A normal Git worktree has a `.git` file pointing to metadata in the parent
+repository. Mounting only that worktree into Docker makes the pointer invalid.
+The runner therefore uses a self-contained local `git clone --no-hardlinks`
+instead. This requires no network and keeps the primary checkout untouched.
+
+The runner builds the exact pinned OAI Ubuntu 24.04 dependency Dockerfile and
+sets:
+
+```
+HARP_ASN1C_EXEC=/opt/asn1c/bin/asn1c
+```
+
+before invoking the pre-RFsim suite.
+
+Expected future marker:
+
+```
+PASS_HARP_OAI_SNPN_DOCKER_PRE_RFSIM
+```
+
+AMF Docker runner:
+
+- `0ddef3f9fe6470c29d42020dfb837aea4388c236`;
+- final dependency cleanup:
+  `74d89aad6456fdf2e44e2092ff5940a88e47c891`.
+
+File:
+
+```
+tools/oai_amf_snpn/run_amf_build_in_docker.sh
+```
+
+The AMF runner requires the pinned checkout and initialized submodules, validates
+their gitlink state, creates a disposable clone, applies HARP blueprints, copies
+the pinned submodule source contents without Git metadata, and builds the
+official upstream `oai-amf-builder` Docker stage.
+
+Expected future marker:
+
+```
+PASS_HARP_AMF_SNPN_DOCKER_BUILD
+```
+
+AMF host build alignment:
+
+- `2c5ecc1c865c8e0c4ce95eecf5a0e8ee9fabcdea` adds
+  `-DBUILD_SHARED_LIBS=OFF`, matching the pinned upstream `build_amf`
+  script's build mode.
+
+Full-SIB1 test hardening:
+
+- `1fb1f9c10f36600a301d979391adadbdf4f2d483` explicitly includes
+  `<stdbool.h>` in the new C test rather than relying on transitive headers.
+
+Static API audit completed:
+
+- `uper_encode_to_new_buffer()` is used by pinned OAI as a byte-length-returning
+  API in the same pattern as `0003d`;
+- `free_SIB1_NR`, `encode_SIB_NR`, `prepare_scc`, `fill_scc_sim`, and
+  `fix_scc` signatures match the staged full-SIB1 test;
+- the full-SIB1 framework globals/stubs match the existing
+  `tests/nrdlbench/dlbench.c` standalone pattern;
+- direct CMake with `ENABLE_TESTS=ON` is an upstream-supported unit-test path.
+
+Current environment has neither Docker nor Podman, so neither Docker gate has
+been executed here. They are READY, not PASS.
 
 No GitHub Actions were used.
 No phone installation is required yet.
