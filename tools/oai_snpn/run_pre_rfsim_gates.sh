@@ -34,10 +34,10 @@ echo "[HARP] validating independent SNPN KDF reference vectors..."
 python3 "$ROOT/tools/oai_snpn/kdf_reference.py"
 
 echo "[HARP] validating OAI blueprints..."
-"$ROOT/tools/oai_snpn/apply_oai_blueprints.sh" "$CHECKOUT" --check
+bash "$ROOT/tools/oai_snpn/apply_oai_blueprints.sh" "$CHECKOUT" --check
 
 echo "[HARP] applying OAI blueprints..."
-"$ROOT/tools/oai_snpn/apply_oai_blueprints.sh" "$CHECKOUT"
+bash "$ROOT/tools/oai_snpn/apply_oai_blueprints.sh" "$CHECKOUT"
 
 echo "[HARP] configuring minimal test build..."
 cmake -S "$CHECKOUT" -B "$BUILD_DIR" -GNinja \
