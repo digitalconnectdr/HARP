@@ -256,3 +256,39 @@ Still intentionally deferred:
 - end-to-end simple-scenario positive/negative KDF execution;
 - standards-compliant NGAP/F1AP NID propagation;
 - RFsim broadcast/select validation.
+
+
+## Local pre-RFsim gate runner
+
+A focused local runner is available:
+
+```
+tools/oai_snpn/run_pre_rfsim_gates.sh /path/to/openairinterface5g
+```
+
+Requirements:
+
+- checkout must be exactly at:
+  `f8f769592a7030be88ede4bb5ca66fa1ca6a80e0`;
+- checkout must be clean;
+- CMake + Ninja + OAI build dependencies must already be installed;
+- no GitHub Actions are used.
+
+The runner:
+
+1. checks all HARP OAI blueprints in order;
+2. applies them to the disposable checkout;
+3. configures with `ENABLE_TESTS=ON` and ASAN disabled;
+4. builds only:
+   - `nas_lib_test`
+   - `test_asn1_msg`
+   - `test_snpn_sib1_codec`
+5. runs only those CTest entries;
+6. requires all expected HARP PASS markers;
+7. emits:
+
+```
+PASS_HARP_OAI_SNPN_PRE_RFSIM_GATES
+```
+
+This marker is stronger than blueprint applicability but still precedes RFsim registration/authentication.
