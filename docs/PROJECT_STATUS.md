@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-07  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `6be08b8b36336a583ec9f33edc0034b6e90e865d`
+**Baseline commit reviewed through:** `d8d0e001e8a88d2fd47c0f7f6c76cec0a1af5e0e`
 
 ## 1. Product objective
 
@@ -1092,6 +1092,81 @@ CMake audit confirms:
 - therefore the staged `test_snpn_sib1_codec` target is reachable in the intended configuration.
 
 This runner has not yet been executed in the current environment because no OAI checkout/build dependency set is available locally.
+
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 28. AMF build gate + RFsim log gate automation — 2026-10-08
+
+AMF build runner:
+
+- `451450a544c9848c2c8304bbaf04da9878052e75`
+- file: `tools/oai_amf_snpn/run_amf_build_gate.sh`
+- requires clean AMF checkout pinned to `5eedea557a3745b13ed9ec4bf29e6a28bd912574`;
+- requires initialized `src/common-src` and `build/common-build`;
+- validates/applies HARP AMF blueprints;
+- configures upstream CMake in Release mode;
+- builds only target `amf`;
+- success marker:
+  `PASS_HARP_AMF_SNPN_BUILD`.
+
+RFsim correlation checker:
+
+- `adc65c37c44b2699a77c6908109f4f832f29844a`
+- file: `tools/oai_snpn/check_rfsim_snpn_logs.py`;
+- positive mode requires:
+  - nrUE `PASS_V5G_SNPN_SELECT`;
+  - canonical AMF `HARP_SNPN_AMF_SNN`;
+  - identical UE/AMF NID;
+  - a registration/authentication success marker;
+- emits:
+  `PASS_V5G_SNPN_KDF_LAB`.
+
+Negative mode requires:
+
+```
+UE NID != AMF NID
+and
+no authentication/registration success marker
+```
+
+and emits:
+
+```
+PASS_V5G_SNPN_KDF_NEGATIVE
+```
+
+If the negative case contains a success marker, the checker fails closed.
+
+Self-test:
+
+- `e4f7d9f16aa7df9b72d3e898fcc8c484e9cbf554`
+- file: `tools/oai_snpn/run_rfsim_log_checker_selftest.sh`.
+
+Synthetic validation performed in the current environment produced:
+
+```
+PASS_V5G_SNPN_KDF_LAB
+PASS_V5G_SNPN_KDF_NEGATIVE
+PASS_NEGATIVE_FALSE_SUCCESS_REJECTED
+```
+
+These synthetic markers validate the checker logic only; they are not RFsim or 5G authentication claims.
+
+Current execution frontier:
+
+```
+OAI blueprint chain      PASS 41/41
+AMF blueprint chain      PASS 17/17
+OAI pre-RFsim runner     READY
+AMF build runner         READY
+RFsim log checker        SELF-TESTED
+real OAI compile         PENDING
+real AMF compile         PENDING
+RFsim positive           PENDING
+RFsim mismatched NID     PENDING
+```
 
 No GitHub Actions were used.
 No phone installation is required yet.
