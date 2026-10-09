@@ -81,6 +81,7 @@ python3 tools/oai_snpn/prepare_rfsim_lab_configs.py \
 Expected:
 
 ```
+PASS_HARP_RFSIM_SINGLE_VARIABLE_FIXTURES
 PASS_HARP_RFSIM_FIXTURE_GENERATION
 ```
 
@@ -461,3 +462,35 @@ PASS_RFSIM_LOG_CAUSAL_ORDER_REJECTED
 ```
 
 This marker validates checker logic only; it is not RFsim evidence.
+
+
+## 12. Single-variable fixture gate
+
+Generated fixtures are validated automatically with:
+
+```bash
+python3 tools/oai_snpn/check_rfsim_fixture_pair.py /tmp/harp-snpn-rfsim
+```
+
+The gate verifies that the positive and negative AMF YAML files differ only in
+`snpn_nid`, and also cross-checks the UE, gNB and subscriber fixtures:
+
+```
+UE NID              10000000001
+AMF positive NID    10000000001
+AMF negative NID    10000000002
+gNB PLMN             999/99
+gNB NID              10000000001
+IMSI                 999990000000001
+UE Ki == SQL Ki
+UE OPc == SQL OPc
+fixed SQL RAND
+```
+
+Required marker:
+
+```
+PASS_HARP_RFSIM_SINGLE_VARIABLE_FIXTURES
+```
+
+Do not start the positive/negative pair unless this gate passes.
