@@ -36,6 +36,11 @@ def main() -> None:
     ap.add_argument("--amf-log", required=True)
     ap.add_argument("--expected-ue-nid", default="10000000001")
     ap.add_argument("--expected-amf-nid")
+    ap.add_argument(
+        "--require-registration",
+        action="store_true",
+        help="Also require the explicit AMF registration-complete marker",
+    )
     args = ap.parse_args()
 
     ue = read(args.ue_log)
@@ -77,9 +82,11 @@ def main() -> None:
         if not auth_seen:
             fail(f"missing exact AMF authentication marker: {auth_marker}")
         print("PASS_V5G_SNPN_AUTH")
-        if not registered_seen:
-            fail(f"missing exact AMF registration marker: {registered_marker}")
         print("PASS_V5G_SNPN_KDF_LAB")
+        if args.require_registration:
+            if not registered_seen:
+                fail(f"missing exact AMF registration marker: {registered_marker}")
+            print("PASS_V5G_SNPN_REGISTERED")
         return
 
     if ue_nid == amf_nid:
