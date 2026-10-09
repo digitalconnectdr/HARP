@@ -147,3 +147,37 @@ PASS_V5G_SNPN_REGISTERED
 ```
 
 This separation avoids conflating SNPN/KDF correctness with downstream SMF/PCF/UPF availability.
+
+
+## Docker AMF build runner
+
+For a Linux host with Docker and Internet access:
+
+```bash
+bash tools/oai_amf_snpn/run_amf_build_in_docker.sh /path/to/oai-cn5g-amf
+```
+
+Requirements:
+
+- checkout exactly at `5eedea557a3745b13ed9ec4bf29e6a28bd912574`;
+- clean checkout;
+- submodules initialized at their pinned gitlink revisions.
+
+The runner:
+
+1. validates submodule state;
+2. creates a disposable local clone;
+3. applies the HARP AMF SNPN blueprints;
+4. copies the already-pinned submodule contents into the disposable build tree
+   without Git metadata;
+5. builds the official upstream `oai-amf-builder` stage from
+   `docker/Dockerfile.amf.ubuntu`;
+6. verifies that the resulting `oai_amf` binary exists and is executable.
+
+Expected final marker:
+
+```
+PASS_HARP_AMF_SNPN_DOCKER_BUILD
+```
+
+No GitHub Actions are used.
