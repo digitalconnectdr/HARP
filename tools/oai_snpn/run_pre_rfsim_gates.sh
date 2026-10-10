@@ -70,16 +70,19 @@ if ! grep -Eq 'Total Tests: *3$' <<<"$TEST_LISTING"; then
 fi
 
 echo "[HARP] running focused CTest selection..."
+RUN_LOG="$BUILD_DIR/harp-snpn-ctest.log"
 ctest --test-dir "$BUILD_DIR" \
-  --output-on-failure \
-  -R "$TEST_RE"
-
-echo "[HARP] verifying expected PASS markers..."
-LOG_FILE="$BUILD_DIR/Testing/Temporary/LastTest.log"
-if [ ! -f "$LOG_FILE" ]; then
-  echo "ERROR: CTest log not found: $LOG_FILE" >&2
+  -V \
+  -R "$TEST_RE" \
+  2>&1 | tee "$RUN_LOG"
+CTEST_RC="${PIPESTATUS[0]}"
+if [ "$CTEST_RC" -ne 0 ]; then
+  echo "ERROR: focused SNPN CTest run failed with exit code $CTEST_RC" >&2
   exit 7
 fi
+
+echo "[HARP] verifying expected PASS markers from current CTest run..."
+LOG_FILE="$RUN_LOG"
 
 required_markers=(
   PASS_V5G_SNN_FORMAT_BASELINE
