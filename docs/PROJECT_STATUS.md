@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-07  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `b8c781c95dc03af7a1d9bf6519bc295f3376b905`
+**Baseline commit reviewed through:** `e5d3be6fcb5e4be6ae3f6d258ba33e9b55299bc8`
 
 ## 1. Product objective
 
@@ -1917,6 +1917,149 @@ Runbook documentation:
 
 ```
 4f4e2500356929429e744af10cae8351cf3f295d
+```
+
+No real RFsim PASS is claimed yet.
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 37. AMF SQN/RAND state model pinned — 2026-10-09
+
+The AMF authentication state path was audited against the exact pinned source.
+
+### SQN
+
+Pinned `authentication.cpp` reads MySQL decimal SQN and expands it into six
+bytes big-endian:
+
+```
+sqn[0] <- bits 47..40
+...
+sqn[5] <- bits 7..0
+```
+
+It serializes the bytes back to the same decimal representation when updating
+MySQL.
+
+Therefore:
+
+```
+SQL sqn=0
+        ->
+00 00 00 00 00 00
+        ->
+nrUE sqn="000000"
+```
+
+AMF then increments DB SQN by exactly:
+
+```
++32
+```
+
+Reference gate added:
+
+```
+tools/oai_amf_snpn/sqn_reference.py
+```
+
+commit:
+
+```
+708e90a8a09e6e987a71808f16cd04bc60ee0404
+```
+
+Expected markers:
+
+```
+PASS_HARP_AMF_SQN_ENDIANNESS
+PASS_HARP_AMF_SQN_INCREMENT_MODEL
+```
+
+Integrated into standalone suite:
+
+```
+ccfc927c49f9301093c41b285d6bc18e8d4a989b
+```
+
+### RAND
+
+Pinned AMF config initialization does:
+
+```
+auth_para = {}
+```
+
+so `auth_para.random` is false.
+
+Pinned source also defines:
+
+```
+MAX_5GS_AUTH_VECTORS = 1
+authentication::no_random_delta = 0
+```
+
+The first RAND from a fresh AMF process is therefore deterministic:
+
+```
+000102030405060708090A0B0C0D0E0F
+```
+
+matching the SQL baseline.
+
+The process-local `no_random_delta` increments after generation, so a second
+vector in the same AMF process would become:
+
+```
+0102030405060708090A0B0C0D0E0F10
+```
+
+even if the DB row had been reset.
+
+Reference gate added:
+
+```
+tools/oai_amf_snpn/rand_reference.py
+```
+
+commit:
+
+```
+e767a0ecff15335a245da00fea44563f69156472
+```
+
+Expected markers:
+
+```
+PASS_HARP_AMF_DETERMINISTIC_RAND_MODEL
+PASS_HARP_AMF_RESTART_REQUIRED_FOR_IDENTICAL_RAND
+```
+
+Integrated into standalone suite:
+
+```
+d0a44c855b01a0704e589e64d6f6d0ecf4b2e0c1
+```
+
+Experimental consequence:
+
+A strict positive/negative pair must perform both:
+
+```
+reset MySQL subscriber row
+restart AMF process
+```
+
+between runs.
+
+Resetting SQL without restarting AMF does not restore the RAND baseline and is
+not accepted as a valid single-variable comparison.
+
+Runbook update:
+
+```
+e5d3be6fcb5e4be6ae3f6d258ba33e9b55299bc8
 ```
 
 No real RFsim PASS is claimed yet.
