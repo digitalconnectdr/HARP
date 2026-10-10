@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-09  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `7e8e9540bfd46dbde6a26243755b5fb7181d7b3d`
+**Baseline commit reviewed through:** `16b12febd3119c4465bbc43f620ed37a684f2cfe`
 
 ## 0. Consolidated current status — 2026-10-09
 
@@ -34,7 +34,7 @@ fresh aggregate-suite execution before the aggregate
 ### What is READY but not yet PASS
 
 ```
-full 11-blueprint OAI checker
+full 12-blueprint OAI checker
 OAI Docker pre-RFsim build runner
 AMF Docker build runner
 RFsim fixture generator + single-variable checker
@@ -1700,7 +1700,7 @@ No GitHub Actions were used.
 No phone installation is required yet.
 
 
-## 34. Docker isolation hardening + full 11-blueprint gate — 2026-10-09
+## 34. Docker isolation hardening + full 12-blueprint gate — 2026-10-09
 
 Two container-execution hazards were identified and corrected before any real Docker build was attempted.
 
@@ -1774,7 +1774,7 @@ It requires:
 - exact OAI anchor `f8f769592a7030be88ede4bb5ca66fa1ca6a80e0`;
 - clean worktree;
 - successful context validation of the full wrapper sequence;
-- exactly 11 OAI blueprint patch entries.
+- exactly 12 OAI blueprint patch entries.
 
 Portable patch-count fix:
 
@@ -1794,11 +1794,11 @@ The pre-RFsim runner now invokes this full-chain gate before applying any patch:
 34d62643bf1434ea15c2ea0cd173745f9c51991d
 ```
 
-An attempted connector-side revalidation of all 11 patches in one request exceeded
+An attempted connector-side revalidation of all 12 patches in one request exceeded
 the connector's maximum tool-call count. No partial result was promoted to PASS.
 
 The new local checker is the authoritative next execution path for the complete
-11-patch sequence.
+12-patch sequence.
 
 Current status:
 
@@ -1806,7 +1806,7 @@ Current status:
 standalone helpers                    PASS
 independent KDF                       PASS
 known critical blueprint subchains    PASS
-full 11-blueprint local checker       READY
+full 12-blueprint local checker       READY
 OAI Docker pre-RFsim runner           READY
 AMF Docker build runner               READY
 real OAI compile                      PENDING
@@ -2144,6 +2144,178 @@ Runbook update:
 ```
 e5d3be6fcb5e4be6ae3f6d258ba33e9b55299bc8
 ```
+
+No real RFsim PASS is claimed yet.
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 38. nrUE authentication evidence + expected NID-mismatch path — 2026-10-09
+
+The project status was first consolidated at the top of this document:
+
+```
+3389cb505a9a8a17a5f037b2414ba42640fd8bf2
+```
+
+That section now distinguishes current executed PASS, READY gates, PENDING
+runtime work, the current blocker, installation decision and the no-Actions
+policy.
+
+### Authentication-path audit
+
+Pinned AMF source was reviewed around:
+
+```
+authentication_response_handle()
+authentication_failure_handle()
+```
+
+The two paths are distinct:
+
+```
+Authentication Response
+        ->
+RES*/HRES* verification
+        ->
+isAuthOk=false on mismatch
+        ->
+Authentication Reject
+```
+
+versus:
+
+```
+Authentication Failure
+        ->
+5GMM cause
+        ->
+synchronization failure may carry AUTS
+```
+
+Therefore the NID-mismatch experiment should be evidenced through the
+Authentication Response/RES* mismatch path, not through AUTS/resynchronization.
+
+Pinned nrUE source was then reviewed around:
+
+```
+handle_fgmm_authentication_request()
+generateAuthenticationResp()
+derive_ue_keys()
+transferRES()
+```
+
+Key observation:
+
+- the UE derives RES* using its serving-network identity;
+- `transferRES()` incorporates the SNN;
+- after the SNPN patches, that SNN includes the selected NID;
+- the normal Authentication Request path calls `generateAuthenticationResp()`
+  directly after ngKSI checks;
+- no visible AUTN/SQN synchronization-failure branch precedes that response in
+  this pinned nrUE path.
+
+This does not remove the SQN/RAND reset requirement: those remain required
+cryptographic experimental controls.
+
+### New nrUE runtime evidence blueprint
+
+Added:
+
+```
+patches/oai/0004d-nr-ue-snpn-auth-evidence.patch
+```
+
+commit:
+
+```
+a560d12c679f764458e5de321cead11ee86825c1
+```
+
+Runtime markers:
+
+```
+HARP_SNPN_AUTH_RESPONSE_UE nid=<NID>
+HARP_SNPN_AUTH_FAILURE_UE cause=<cause>
+```
+
+The patch is observability-only and does not alter KDF inputs or authentication
+decisions.
+
+It was added to the OAI blueprint wrapper:
+
+```
+6cd5193b164802d72d39e66a637be93e131cd9ff
+```
+
+The full-chain checker now expects 12 blueprints:
+
+```
+f72475ee4de5a32d33a7a22e94930a38945abf7a
+```
+
+### RFsim checker hardening
+
+The log checker now requires, after the current SNPN selection:
+
+```
+HARP_SNPN_AUTH_RESPONSE_UE nid=<selected NID>
+```
+
+and rejects any current-session:
+
+```
+HARP_SNPN_AUTH_FAILURE_UE
+```
+
+Commit:
+
+```
+0988d69be4e40f6f5030db06660f2fc24e7f5142
+```
+
+Self-test updated:
+
+```
+7912036abc2df3f2b669fb3446249273036b6801
+```
+
+with synthetic rejection marker:
+
+```
+PASS_RFSIM_LOG_UE_AUTH_FAILURE_REJECTED
+```
+
+Documentation:
+
+```
+7cf4f16bf28a1538ff16c6963b681ed2f675f639
+16b12febd3119c4465bbc43f620ed37a684f2cfe
+```
+
+### Required negative evidence is now
+
+```
+UE SELECT NID=10000000001
+        |
+UE AUTH RESPONSE NID=10000000001
+        |
+AMF SNN NID=10000000002
+        |
+no UE Authentication Failure
+no AMF AUTH PASS
+no AMF REGISTERED
+        |
+AMF explicit AUTH REJECT NID=10000000002
+        |
+PASS_V5G_SNPN_KDF_NEGATIVE
+```
+
+This is substantially stronger evidence that changing only the serving-network
+NID changes RES*/KDF authentication outcome.
+
+The 12-blueprint chain still requires a fresh local full-chain execution before
+its aggregate PASS can be claimed.
 
 No real RFsim PASS is claimed yet.
 No GitHub Actions were used.
