@@ -101,6 +101,12 @@ diff --git a/openair3/NAS/NR_UE/5GS/tests/nas_lib_test.c b/openair3/NAS/NR_UE/5G
 +      "Unexpected leading-zero SNPN SNN %s",
 +      out);
 +
++  char too_small[44] = {0};
++  AssertFatal(
++      !nr_format_serving_network_name(
++          too_small, sizeof(too_small), &sn),
++      "SNPN SNN must reject a buffer that cannot fit the NUL terminator");
++
 +  nr_serving_network_id_t overflow = sn;
 +  overflow.nid = 0x100000000000ULL;
 +  AssertFatal(
