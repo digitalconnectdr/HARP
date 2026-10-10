@@ -29,6 +29,17 @@ int main(void)
   };
   expect(&lab, "5G:mnc099.mcc999.3gppnetwork.org:10000000001");
 
+  char too_small[44] = {0};
+  assert(!harp_format_serving_network_name(
+      &lab, too_small, sizeof(too_small)));
+
+  char exact[45] = {0};
+  assert(harp_format_serving_network_name(
+      &lab, exact, sizeof(exact)));
+  assert(strcmp(
+      exact,
+      "5G:mnc099.mcc999.3gppnetwork.org:10000000001") == 0);
+
   const harp_serving_network_id_t low = {
       .plmn = {.mcc = 234, .mnc = 15, .mnc_digit_length = 2},
       .has_nid = true,
