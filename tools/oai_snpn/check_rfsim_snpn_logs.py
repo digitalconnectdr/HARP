@@ -11,6 +11,12 @@ SELECT_RE = re.compile(
     r"PASS_V5G_SNPN_SELECT\s+mcc=(?P<mcc>\d+)\s+mnc=(?P<mnc>\d+)\s+nid=(?P<nid>[0-9A-F]{11})"
 )
 AMF_SNN_RE = re.compile(r"HARP_SNPN_AMF_SNN\s+(?P<snn>\S+)")
+UE_AUTH_RESPONSE_RE = re.compile(
+    r"HARP_SNPN_AUTH_RESPONSE_UE\s+nid=(?P<nid>[0-9A-F]{11})"
+)
+UE_AUTH_FAILURE_RE = re.compile(
+    r"HARP_SNPN_AUTH_FAILURE_UE\s+cause=(?P<cause>\d+)"
+)
 
 
 def read(path: str) -> str:
@@ -57,6 +63,26 @@ def main() -> None:
     if ue_nid != args.expected_ue_nid.upper():
         fail(f"UE selected NID {ue_nid}, expected {args.expected_ue_nid.upper()}")
 
+    ue_session_offset = sel.end()
+    ue_responses = [
+        m for m in UE_AUTH_RESPONSE_RE.finditer(ue)
+        if m.start() >= ue_session_offset
+    ]
+    ue_failures = [
+        m for m in UE_AUTH_FAILURE_RE.finditer(ue)
+        if m.start() >= ue_session_offset
+    ]
+    if not ue_responses:
+        fail("missing UE HARP_SNPN_AUTH_RESPONSE_UE after current SNPN selection")
+    ue_auth_nid = ue_responses[-1].group("nid").upper()
+    if ue_auth_nid != ue_nid:
+        fail(f"UE authentication response NID {ue_auth_nid}, selected NID {ue_nid}")
+    if ue_failures:
+        fail(
+            "UE emitted Authentication Failure after current SNPN selection "
+            f"(cause={ue_failures[-1].group('cause')})"
+        )
+
     amf_line = last(AMF_SNN_RE, amf, "AMF HARP_SNPN_AMF_SNN")
     amf_snn = amf_line.group("snn")
     sm = SNN_RE.fullmatch(amf_snn)
@@ -90,6 +116,8 @@ def main() -> None:
     print(f"UE_PLMN={ue_mcc}/{ue_mnc}")
     print(f"AMF_PLMN={amf_mcc}/{amf_mnc}")
     print(f"UE_NID={ue_nid}")
+    print(f"UE_AUTH_RESPONSE_NID={ue_auth_nid}")
+    print("UE_AUTH_FAILURE_SEEN=0")
     print(f"AMF_NID={amf_nid}")
     print(f"AMF_SNN={amf_snn}")
     print(f"AUTH_MARKER_SEEN={int(auth_seen)}")
