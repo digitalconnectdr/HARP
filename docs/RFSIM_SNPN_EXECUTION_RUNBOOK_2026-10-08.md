@@ -195,11 +195,20 @@ sudo ./nr-uesoftmodem \
   2>&1 | tee /tmp/harp-ue-positive.log
 ```
 
-Expected selection marker:
+Expected UE markers:
 
 ```
 PASS_V5G_SNPN_SELECT mcc=999 mnc=99 nid=10000000001
+HARP_SNPN_AUTH_RESPONSE_UE nid=10000000001
 ```
+
+The current experiment must not contain:
+
+```
+HARP_SNPN_AUTH_FAILURE_UE
+```
+
+after the current SNPN selection.
 
 ### 6.4 KDF/authentication gate
 
@@ -218,6 +227,8 @@ Required sequence:
 UE_PLMN=999/99
 AMF_PLMN=999/099
 UE_NID=10000000001
+UE_AUTH_RESPONSE_NID=10000000001
+UE_AUTH_FAILURE_SEEN=0
 AMF_NID=10000000001
 AUTH_MARKER_SEEN=1
 PASS_V5G_SNPN_AUTH
@@ -324,6 +335,8 @@ Required:
 UE_PLMN=999/99
 AMF_PLMN=999/099
 UE_NID=10000000001
+UE_AUTH_RESPONSE_NID=10000000001
+UE_AUTH_FAILURE_SEEN=0
 AMF_NID=10000000002
 AUTH_MARKER_SEEN=0
 REGISTERED_MARKER_SEEN=0
@@ -623,3 +636,43 @@ negative run
 ```
 
 This restores both persistent DB state and process-local RAND state.
+
+
+## 15. Expected NID-mismatch authentication path
+
+The pinned nrUE authentication path builds Authentication Response after
+deriving RES*/KAUSF/KSEAF with its selected serving-network identity.
+
+For the current HARP negative experiment, the expected sequence is:
+
+```
+PASS_V5G_SNPN_SELECT ... nid=10000000001
+        ->
+HARP_SNPN_AUTH_RESPONSE_UE nid=10000000001
+        ->
+AMF SNN ...:10000000002
+        ->
+AMF RES*/HRES* mismatch
+        ->
+HARP_SNPN_AUTH_REJECT_AMF nid=10000000002
+        ->
+PASS_V5G_SNPN_KDF_NEGATIVE
+```
+
+The UE marker proves that the UE reached Authentication Response with its own
+selected NID rather than failing earlier in another authentication branch.
+
+Any:
+
+```
+HARP_SNPN_AUTH_FAILURE_UE cause=...
+```
+
+after the current SNPN selection invalidates this specific single-variable
+NID experiment and must be diagnosed separately.
+
+The pinned nrUE implementation reviewed for this experiment does not perform a
+visible AUTN/SQN synchronization-failure branch before
+`generateAuthenticationResp()` in the normal Authentication Request path.
+Nevertheless, SQN/RAND resets remain mandatory because they are part of the
+cryptographic input/state and are required for a controlled comparison.
