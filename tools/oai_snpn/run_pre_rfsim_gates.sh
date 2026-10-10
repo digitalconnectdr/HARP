@@ -71,11 +71,13 @@ fi
 
 echo "[HARP] running focused CTest selection..."
 RUN_LOG="$BUILD_DIR/harp-snpn-ctest.log"
+set +e
 ctest --test-dir "$BUILD_DIR" \
   -V \
   -R "$TEST_RE" \
   2>&1 | tee "$RUN_LOG"
 CTEST_RC="${PIPESTATUS[0]}"
+set -e
 if [ "$CTEST_RC" -ne 0 ]; then
   echo "ERROR: focused SNPN CTest run failed with exit code $CTEST_RC" >&2
   exit 7
