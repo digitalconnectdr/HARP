@@ -1,0 +1,32 @@
+From HARP research branch
+Subject: [PATCH 4d] NR UE: add SNPN authentication response/failure evidence
+
+Depends on:
+  0001-nr-ue-serving-network-baseline-refactor.patch
+  0002-nr-ue-snpn-serving-network-name.patch
+  0004-nr-ue-snpn-selection.patch
+
+Upstream anchor:
+  openairinterface/openairinterface5g
+  f8f769592a7030be88ede4bb5ca66fa1ca6a80e0
+
+This patch adds runtime evidence only. It does not change authentication
+decisions or KDF inputs.
+
+diff --git a/openair3/NAS/NR_UE/nr_nas_msg.c b/openair3/NAS/NR_UE/nr_nas_msg.c
+--- a/openair3/NAS/NR_UE/nr_nas_msg.c
++++ b/openair3/NAS/NR_UE/nr_nas_msg.c
+@@
+ static void generateAuthenticationResp(nr_ue_nas_t *nas, as_nas_info_t *initialNasMsg, uint8_t *buf)
+ {
+   derive_ue_keys(buf, nas);
++  if (nas->serving_network.has_nid) {
++    printf("HARP_SNPN_AUTH_RESPONSE_UE nid=%011llX\n",
++           (unsigned long long)nas->serving_network.nid);
++  }
+   OctetString res;
+@@
+ static void generateAuthenticationFailure(as_nas_info_t *initialNasMsg, cause_id_t cause)
+ {
++  printf("HARP_SNPN_AUTH_FAILURE_UE cause=%d\n", cause);
+   int size = sizeof(fgmm_msg_header_t);
