@@ -46,4 +46,5 @@ python3 "$APPLIER" "${MODE[@]}" "$CHECKOUT" \
   "$ROOT/patches/oai/0003d-snpn-cell-access-codec-test.patch" \
   "$ROOT/patches/oai/0004-nr-ue-snpn-selection.patch" \
   "$ROOT/patches/oai/0004b-nr-ue-snpn-selection-unit-test.patch" \
-  "$ROOT/patches/oai/0004c-snpn-full-sib1-codec-test.patch"
+  "$ROOT/patches/oai/0004c-snpn-full-sib1-codec-test.patch" \
+  "$ROOT/patches/oai/0004d-nr-ue-snpn-auth-evidence.patch"
