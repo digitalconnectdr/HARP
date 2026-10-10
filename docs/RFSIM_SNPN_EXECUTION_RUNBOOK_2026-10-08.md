@@ -494,3 +494,63 @@ PASS_HARP_RFSIM_SINGLE_VARIABLE_FIXTURES
 ```
 
 Do not start the positive/negative pair unless this gate passes.
+
+
+## 13. SQN byte order and reset invariant
+
+Pinned AMF source reads MySQL `sqn` as a decimal integer and expands it into
+six bytes in big-endian order:
+
+```
+sqn[0] = bits 47..40
+sqn[1] = bits 39..32
+sqn[2] = bits 31..24
+sqn[3] = bits 23..16
+sqn[4] = bits 15..8
+sqn[5] = bits 7..0
+```
+
+Therefore:
+
+```
+SQL sqn = 0
+        ->
+00 00 00 00 00 00
+        ->
+nrUE sqn = "000000"
+```
+
+The AMF updates the database with:
+
+```
+sqn = sqn + 32
+```
+
+after authentication-vector generation.
+
+So after one authentication attempt, the database state can become:
+
+```
+decimal 32
+        ->
+00 00 00 00 00 20
+```
+
+That state is no longer the baseline used by the paired experiment.
+
+Reference gate:
+
+```bash
+python3 tools/oai_amf_snpn/sqn_reference.py
+```
+
+Expected:
+
+```
+PASS_HARP_AMF_SQN_ENDIANNESS
+PASS_HARP_AMF_SQN_INCREMENT_MODEL
+```
+
+Consequently, re-importing `harp_subscriber.sql` before **every** positive or
+negative run is mandatory. A second run without reset is not a valid
+single-variable comparison.
