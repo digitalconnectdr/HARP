@@ -1,8 +1,91 @@
 # HARP — Project Status
 
-**Baseline date:** 2026-10-07  
+**Baseline date:** 2026-10-09  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `e5d3be6fcb5e4be6ae3f6d258ba33e9b55299bc8`
+**Baseline commit reviewed through:** `7e8e9540bfd46dbde6a26243755b5fb7181d7b3d`
+
+## 0. Consolidated current status — 2026-10-09
+
+### What is actually PASS
+
+Executed locally or otherwise directly validated:
+
+```
+PASS_NID44_VECTORS
+PASS_SNN_VECTORS
+PASS_AMF_SNN_VECTORS
+PASS_UE_AMF_SNN_MATCH
+PASS_V5G_SNPN_KDF_REFERENCE
+```
+
+The standalone suite now also contains deterministic reference gates for:
+
+```
+PASS_HARP_AMF_SQN_ENDIANNESS
+PASS_HARP_AMF_SQN_INCREMENT_MODEL
+PASS_HARP_AMF_DETERMINISTIC_RAND_MODEL
+PASS_HARP_AMF_RESTART_REQUIRED_FOR_IDENTICAL_RAND
+```
+
+Those new reference scripts are committed and integrated; they still require one
+fresh aggregate-suite execution before the aggregate
+`PASS_HARP_SNPN_STANDALONE_SUITE` marker is promoted to current executed PASS.
+
+### What is READY but not yet PASS
+
+```
+full 11-blueprint OAI checker
+OAI Docker pre-RFsim build runner
+AMF Docker build runner
+RFsim fixture generator + single-variable checker
+RFsim session/PLMN/causal log checker
+```
+
+### What remains PENDING
+
+```
+real OAI compile
+real AMF compile
+real RFsim positive authentication
+real RFsim mismatched-NID negative authentication
+optional full 5G registration
+Android APK build
+two-phone physical Stage-0/1/2 validation
+Stage-2A VPN physical validation
+```
+
+### Current highest-priority blocker
+
+The immediate research blocker is no longer SNPN/KDF design. It is execution
+in a Linux environment with the OAI toolchain or Docker + Internet access so the
+prepared build gates can become real compile/runtime PASS evidence.
+
+The Android branch is also still blocked on a local APK build and physical
+two-phone validation.
+
+### Experimental invariant for the first SNPN proof
+
+The positive and negative RFsim runs must differ only in AMF NID:
+
+```
+positive AMF NID = 10000000001
+negative AMF NID = 10000000002
+```
+
+Between runs both the subscriber DB and AMF process must be reset/restarted so
+SQN and deterministic RAND return to the same baseline.
+
+### Installation decision
+
+**Do not install on the phones yet.**
+
+Phone installation begins only after a current Android APK exists and the build
+gate is clean. The OAI/SNPN virtual lab does not require phone installation.
+
+### GitHub Actions
+
+GitHub Actions remain prohibited for this phase. All build/test routes are
+local/manual or local Docker.
 
 ## 1. Product objective
 
