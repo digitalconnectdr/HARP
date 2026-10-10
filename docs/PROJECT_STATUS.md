@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-09  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `16b12febd3119c4465bbc43f620ed37a684f2cfe`
+**Baseline commit reviewed through:** `6e9769b9b56dc11d9031ba747e26b8b969c5acf4`
 
 ## 0. Consolidated current status — 2026-10-09
 
@@ -2316,6 +2316,28 @@ NID changes RES*/KDF authentication outcome.
 
 The 12-blueprint chain still requires a fresh local full-chain execution before
 its aggregate PASS can be claimed.
+
+No real RFsim PASS is claimed yet.
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 39. Fresh nrUE required between paired RFsim runs — 2026-10-09
+
+The pinned nrUE keeps the NAS key-set identifier in process state. Reusing the
+same nrUE process for the second authentication can trigger its
+"ngKSI already in use" Authentication Failure path instead of producing the
+Authentication Response needed for the NID experiment.
+
+The paired test must therefore restart nrUE as well as AMF and reset the
+subscriber SQL between positive and negative runs. The gNB is also restarted
+for clean RRC/RFsim/log isolation.
+
+The RFsim checker fails closed if the current UE session emits:
+
+HARP_SNPN_AUTH_FAILURE_UE
+
+Runbook commit: 6e9769b9b56dc11d9031ba747e26b8b969c5acf4
 
 No real RFsim PASS is claimed yet.
 No GitHub Actions were used.
