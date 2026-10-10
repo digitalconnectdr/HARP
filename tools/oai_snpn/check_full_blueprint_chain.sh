@@ -38,8 +38,8 @@ if [ -z "$HUNKS" ]; then
 fi
 
 PATCH_COUNT="$(grep -c '^  "\$ROOT/patches/oai/' "$ROOT/tools/oai_snpn/apply_oai_blueprints.sh" || true)"
-if [ "$PATCH_COUNT" -ne 11 ]; then
-  echo "ERROR: expected 11 OAI blueprints in wrapper, found $PATCH_COUNT" >&2
+if [ "$PATCH_COUNT" -ne 12 ]; then
+  echo "ERROR: expected 12 OAI blueprints in wrapper, found $PATCH_COUNT" >&2
   exit 6
 fi
 
