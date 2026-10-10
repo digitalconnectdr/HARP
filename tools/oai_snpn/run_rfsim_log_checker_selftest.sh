@@ -7,6 +7,7 @@ trap 'rm -rf "$TMP"' EXIT
 
 cat >"$TMP/ue-positive.log" <<'EOF'
 PASS_V5G_SNPN_SELECT mcc=999 mnc=99 nid=10000000001
+HARP_SNPN_AUTH_RESPONSE_UE nid=10000000001
 EOF
 
 cat >"$TMP/amf-positive.log" <<'EOF'
@@ -47,6 +48,7 @@ fi
 
 cat >"$TMP/ue-negative.log" <<'EOF'
 PASS_V5G_SNPN_SELECT mcc=999 mnc=99 nid=10000000001
+HARP_SNPN_AUTH_RESPONSE_UE nid=10000000001
 EOF
 
 cat >"$TMP/amf-negative.log" <<'EOF'
@@ -149,3 +151,18 @@ if python3 "$ROOT/tools/oai_snpn/check_rfsim_snpn_logs.py" \
 fi
 
 echo "PASS_RFSIM_LOG_CAUSAL_ORDER_REJECTED"
+
+cat >"$TMP/ue-auth-failure.log" <<'EOF'
+PASS_V5G_SNPN_SELECT mcc=999 mnc=99 nid=10000000001
+HARP_SNPN_AUTH_FAILURE_UE cause=21
+EOF
+
+if python3 "$ROOT/tools/oai_snpn/check_rfsim_snpn_logs.py" \
+  --mode positive \
+  --ue-log "$TMP/ue-auth-failure.log" \
+  --amf-log "$TMP/amf-positive.log"; then
+  echo "ERROR: checker accepted UE Authentication Failure" >&2
+  exit 1
+fi
+
+echo "PASS_RFSIM_LOG_UE_AUTH_FAILURE_REJECTED"
