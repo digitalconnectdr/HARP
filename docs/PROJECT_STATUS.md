@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-09  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `6e9769b9b56dc11d9031ba747e26b8b969c5acf4`
+**Baseline commit reviewed through:** `68514ad10d1a455a523bdad588489a1e446ff643`
 
 ## 0. Consolidated current status — 2026-10-09
 
@@ -2340,5 +2340,88 @@ HARP_SNPN_AUTH_FAILURE_UE
 Runbook commit: 6e9769b9b56dc11d9031ba747e26b8b969c5acf4
 
 No real RFsim PASS is claimed yet.
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 40. SNN boundary + current-run CTest + expanded standalone suite — 2026-10-09
+
+The SNPN formatter boundary condition is now tested explicitly.
+
+OAI blueprint `0002` now requires:
+
+```
+char too_small[44] -> formatting FAIL
+char exact[45]     -> formatting PASS
+```
+
+because the HARP SNPN SNN is 44 characters plus the terminating NUL.
+
+Commit:
+
+```
+b849bbe27bf39ef7fdca2cdbece90e106b60e770
+```
+
+The standalone SNN self-test now covers the same 44/45-byte boundary:
+
+```
+1badee7fa0a26f97ecb377ed153e616312b3001e
+```
+
+The OAI pre-RFsim runner no longer relies on CTest's persistent
+`Testing/Temporary/LastTest.log` for HARP markers. It captures the verbose
+output of the current run directly:
+
+```
+ctest -V ... | tee harp-snpn-ctest.log
+```
+
+and verifies all markers from that file.
+
+Commit:
+
+```
+090f48445715b6043ee85dbaf2cb9cda4993e396
+```
+
+The standalone aggregate suite was expanded to include the purely local RFsim
+fixture-invariant and log-correlation self-tests:
+
+```
+run_rfsim_fixture_checker_selftest.sh
+run_rfsim_log_checker_selftest.sh
+```
+
+Commit:
+
+```
+11ea3e0357a980fdfb9811d7c61f446504efa9c5
+```
+
+A self-test coverage issue was then found and corrected: the UE Authentication
+Failure fixture previously lacked the Authentication Response marker, so it
+could fail for the wrong reason. It now contains:
+
+```
+PASS_V5G_SNPN_SELECT
+HARP_SNPN_AUTH_RESPONSE_UE
+HARP_SNPN_AUTH_FAILURE_UE
+```
+
+and therefore specifically exercises rejection of the UE Authentication
+Failure condition.
+
+Commit:
+
+```
+68514ad10d1a455a523bdad588489a1e446ff643
+```
+
+The aggregate standalone suite is READY for a fresh full execution. Its final
+marker must not be promoted until the whole updated script has actually run.
+
+No real OAI build PASS is claimed yet.
+No RFsim PASS is claimed yet.
 No GitHub Actions were used.
 No phone installation is required yet.
