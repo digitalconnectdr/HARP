@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-09  
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `68514ad10d1a455a523bdad588489a1e446ff643`
+**Baseline commit reviewed through:** `f4b0d0705afb2d71a1a62da179e031801e2b9b97`
 
 ## 0. Consolidated current status — 2026-10-09
 
@@ -2420,6 +2420,32 @@ Commit:
 
 The aggregate standalone suite is READY for a fresh full execution. Its final
 marker must not be promoted until the whole updated script has actually run.
+
+No real OAI build PASS is claimed yet.
+No RFsim PASS is claimed yet.
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 41. CTest exit-code capture hardened — 2026-10-09
+
+The pre-RFsim runner captures verbose CTest output through `tee`.
+
+With `set -euo pipefail`, a failing pipeline could terminate the shell before
+the explicit `PIPESTATUS[0]` diagnostic was evaluated.
+
+The runner now temporarily disables `errexit` only around the CTest pipeline,
+captures the actual CTest exit code, restores `set -e`, and then fails
+explicitly if CTest was non-zero.
+
+Commit:
+
+```
+f4b0d0705afb2d71a1a62da179e031801e2b9b97
+```
+
+This does not weaken the gate; it improves failure attribution while preserving
+fail-closed behavior.
 
 No real OAI build PASS is claimed yet.
 No RFsim PASS is claimed yet.
