@@ -10,5 +10,7 @@ bash "$ROOT/tools/oai_amf_snpn/run_ue_amf_snn_crosscheck.sh"
 python3 "$ROOT/tools/oai_snpn/kdf_reference.py"
 python3 "$ROOT/tools/oai_amf_snpn/sqn_reference.py"
 python3 "$ROOT/tools/oai_amf_snpn/rand_reference.py"
+bash "$ROOT/tools/oai_snpn/run_rfsim_fixture_checker_selftest.sh"
+bash "$ROOT/tools/oai_snpn/run_rfsim_log_checker_selftest.sh"
 
 echo "PASS_HARP_SNPN_STANDALONE_SUITE"
