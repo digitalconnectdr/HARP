@@ -34,6 +34,7 @@ The strict applicator requires every old context block to match exactly once and
 0004-nr-ue-snpn-selection.patch
 0004b-nr-ue-snpn-selection-unit-test.patch
 0004c-snpn-full-sib1-codec-test.patch
+0004d-nr-ue-snpn-auth-evidence.patch
 ```
 
 ### Patch 0001
@@ -228,6 +229,40 @@ PASS_V5G_SNPN_SIB1_CODEC
 ```
 
 The staged test currently links `test_asn1_msg` against `L2_NR`, because that library already contains both the gNB SIB1 builder and SCC simulator helpers. This linkage is context-valid but still requires a real CMake/build pass; if the static link proves too heavy, split a dedicated test target instead of weakening the assertions.
+
+### Patch 0004d
+
+Purpose:
+
+- add runtime-only observability to the nrUE authentication path;
+- emit the selected SNPN NID when the UE actually builds Authentication Response;
+- emit any UE Authentication Failure cause;
+- do not change KDF inputs or authentication decisions.
+
+Runtime evidence:
+
+```
+HARP_SNPN_AUTH_RESPONSE_UE nid=<NID>
+HARP_SNPN_AUTH_FAILURE_UE cause=<cause>
+```
+
+For the HARP NID-mismatch experiment, the expected negative path is:
+
+```
+UE selects NID 10000000001
+        |
+UE builds Authentication Response with NID 10000000001
+        |
+AMF derives expected XRES* with NID 10000000002
+        |
+RES*/HRES* comparison fails
+        |
+AMF authentication reject
+```
+
+A UE Authentication Failure after the current SNPN selection invalidates this
+specific experiment because the rejection would no longer isolate the SNN/NID
+effect.
 
 ## Validation policy
 
