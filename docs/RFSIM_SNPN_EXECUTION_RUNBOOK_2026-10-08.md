@@ -676,3 +676,61 @@ visible AUTN/SQN synchronization-failure branch before
 `generateAuthenticationResp()` in the normal Authentication Request path.
 Nevertheless, SQN/RAND resets remain mandatory because they are part of the
 cryptographic input/state and are required for a controlled comparison.
+
+
+## 16. nrUE ngKSI process-state invariant
+
+Pinned nrUE source stores the NAS Key Set Identifier on the first
+Authentication Request:
+
+```
+if (!nas->ksi)
+    store ngKSI
+```
+
+If the same nrUE process later receives an Authentication Request with the same
+ngKSI, the current implementation follows:
+
+```
+same ngKSI already stored
+        ->
+generateAuthenticationFailure(... ngKSI_already_in_use)
+```
+
+instead of constructing Authentication Response.
+
+Therefore a strict positive/negative pair must restart the nrUE process as well
+as the AMF.
+
+Required reset sequence:
+
+```
+positive run
+        ->
+stop nrUE
+stop AMF
+[stop/restart gNB for clean RRC/log isolation]
+        ->
+reset subscriber SQL
+        ->
+start fresh AMF
+start fresh gNB
+start fresh nrUE
+        ->
+negative run
+```
+
+The cryptographic reasons are now separated:
+
+- SQL reset restores Ki/OPc/SQN/RAND baseline;
+- AMF restart restores `no_random_delta=0`;
+- nrUE restart clears stored ngKSI/security/NAS process state;
+- gNB restart provides a clean RRC/RFsim/log session.
+
+A negative run that emits:
+
+```
+HARP_SNPN_AUTH_FAILURE_UE
+```
+
+is invalid for the NID experiment and must be rerun from fresh processes.
