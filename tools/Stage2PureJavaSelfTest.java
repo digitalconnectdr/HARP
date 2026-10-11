@@ -55,12 +55,14 @@ public final class Stage2PureJavaSelfTest {
         expectControlRejected("HARP2 SESSION x y");
         expectControlRejected("HARP2 BAD anything");
         testPersistentRelay(random);
+        testStaleCredentialsRejected(random);
         testRejectedPeerDoesNotKillRelay(random);
         testHevAdapterContract();
 
         System.out.println("PASS_STAGE2_SESSION_CREDENTIALS_1000");
         System.out.println("PASS_STAGE2_CONTROL_PROTOCOL");
         System.out.println("PASS_STAGE2_PERSISTENT_RELAY");
+        System.out.println("PASS_STAGE2_STALE_CREDENTIALS_REJECTED");
         System.out.println("PASS_STAGE2_REJECTED_PEER_RECOVERY");
         System.out.println("PASS_STAGE2_HEV_JNI_CONTRACT");
         System.out.println("PASS_STAGE2_HEV_CONFIG");
@@ -136,6 +138,50 @@ public final class Stage2PureJavaSelfTest {
             targetFuture.get(5, TimeUnit.SECONDS);
         } finally {
             targetIo.shutdownNow();
+        }
+    }
+
+    private static void testStaleCredentialsRejected(
+            SecureRandom random) throws Exception {
+        Stage2SessionCredentials stale =
+                Stage2SessionCredentials.create(random);
+        Stage2SessionCredentials current =
+                Stage2SessionCredentials.create(random);
+
+        require(
+                !stale.username().equals(current.username())
+                        && !stale.password().equals(current.password()),
+                "fresh Stage2 credentials differ from stale session");
+
+        try (ServerSocket relayListener =
+                     new ServerSocket(0, 10, InetAddress.getLoopbackAddress());
+             Stage2RelayServer relay = new Stage2RelayServer(
+                     relayListener,
+                     current,
+                     SocksPolicies.exactTargetForTest("localhost", 9),
+                     host -> new InetAddress[]{InetAddress.getLoopbackAddress()},
+                     SocketFactory.getDefault(),
+                     SocketPeerPolicies.loopbackOnlyForTest(),
+                     2,
+                     ignored -> {})) {
+            relay.start();
+
+            try (Socket client = new Socket(
+                    InetAddress.getLoopbackAddress(), relay.port())) {
+                client.setSoTimeout(5_000);
+                try {
+                    MiniSocks5.clientConnect(
+                            client,
+                            stale.username(),
+                            stale.password(),
+                            "localhost",
+                            9);
+                    throw new AssertionError(
+                            "stale Stage2 credentials were accepted");
+                } catch (IOException expected) {
+                    // A relay from a new session must reject prior credentials.
+                }
+            }
         }
     }
 
