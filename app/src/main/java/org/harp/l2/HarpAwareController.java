@@ -448,6 +448,7 @@ final class HarpAwareController {
             ndpStarted = SystemClock.elapsedRealtime();
             netCb = new ConnectivityManager.NetworkCallback() {
                 @Override public void onAvailable(Network n) {
+                    if (closed) return;
                     HarpLog.i("A: NDP available ndp_ms="
                             + (SystemClock.elapsedRealtime() - ndpStarted));
                     // Android guarantees onCapabilitiesChanged() immediately after
@@ -456,10 +457,12 @@ final class HarpAwareController {
                 }
 
                 @Override public void onCapabilitiesChanged(Network n, NetworkCapabilities caps) {
+                    if (closed) return;
                     maybeRun(n, caps, started);
                 }
 
                 @Override public void onUnavailable() {
+                    if (closed) return;
                     clientAwareNetwork = null;
                     vpnSession = null;
                     stopStage2VpnAfterTransportLoss();
@@ -467,6 +470,7 @@ final class HarpAwareController {
                 }
 
                 @Override public void onLost(Network n) {
+                    if (closed) return;
                     if (n.equals(clientAwareNetwork)) {
                         clientAwareNetwork = null;
                     }
@@ -482,7 +486,7 @@ final class HarpAwareController {
     }
 
     private void maybeRun(Network network, NetworkCapabilities caps, AtomicBoolean started) {
-        if (caps == null || started.get()) return;
+        if (closed || caps == null || started.get()) return;
         Object infoObject = caps.getTransportInfo();
         if (!(infoObject instanceof WifiAwareNetworkInfo)) return;
         WifiAwareNetworkInfo info = (WifiAwareNetworkInfo) infoObject;
@@ -777,6 +781,7 @@ final class HarpAwareController {
         closed = true;
         clientAwareNetwork = null;
         vpnSession = null;
+        stopStage2VpnAfterTransportLoss();
         relayAwareInterfaceIndex = 0;
         relayAwareInterfaceName = null;
         relayAwareLocalIpv6 = Collections.emptyList();
