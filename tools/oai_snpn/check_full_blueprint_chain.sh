@@ -37,7 +37,7 @@ if [ -z "$HUNKS" ]; then
   exit 5
 fi
 
-EXPECTED_HUNKS=43
+EXPECTED_HUNKS=75
 if [ "$HUNKS" -ne "$EXPECTED_HUNKS" ]; then
   echo "ERROR: expected $EXPECTED_HUNKS OAI blueprint hunks, found $HUNKS" >&2
   exit 6
