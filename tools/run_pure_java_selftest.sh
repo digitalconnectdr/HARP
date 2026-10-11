@@ -5,7 +5,7 @@ OUT="$ROOT/build/pure-java-selftest"
 rm -rf "$OUT"
 mkdir -p "$OUT"
 
-javac -Xlint:all -Werror -d "$OUT" \
+javac --release 17 -Xlint:all -Werror -d "$OUT" \
   "$ROOT/app/src/main/java/org/harp/l2/Stage0Protocol.java" \
   "$ROOT/app/src/main/java/org/harp/l2/SocksDestinationPolicy.java" \
   "$ROOT/app/src/main/java/org/harp/l2/SocksAddressResolver.java" \
