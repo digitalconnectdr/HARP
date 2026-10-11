@@ -21,6 +21,7 @@ final class Stage2VpnSession {
         if (relayAddress == null
                 || !(relayAddress.getAddress() instanceof Inet6Address)
                 || !relayAddress.getAddress().isLinkLocalAddress()
+                || ((Inet6Address) relayAddress.getAddress()).getScopeId() <= 0
                 || relayAddress.getPort() <= 0) {
             throw new IllegalArgumentException(
                     "relayAddress must be scoped IPv6 link-local");
