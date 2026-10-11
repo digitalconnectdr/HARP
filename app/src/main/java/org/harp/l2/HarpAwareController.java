@@ -424,6 +424,13 @@ final class HarpAwareController {
                     HarpLog::i);
             stage2Relay = relay;
             relay.start();
+
+            if (!InternetNetworkSelector.isUsableInternet(cm, internet)) {
+                HarpLog.i("B: FAIL_STAGE2_RELAY upstream lost VALIDATED during start");
+                closeRelayTransport();
+                return;
+            }
+
             HarpLog.i("PASS_STAGE2_RELAY_READY port=" + relay.port());
         } catch (Exception e) {
             HarpLog.i("B: FAIL_STAGE2_RELAY "
