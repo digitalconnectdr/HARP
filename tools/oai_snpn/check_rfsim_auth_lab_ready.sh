@@ -158,4 +158,68 @@ if [ -n "$N2_IFACE" ]; then
   fi
 fi
 
+GNB_CFG="$FIXTURES/gnb.harp-snpn.conf"
+readarray -t TOPO_VALUES < <(python3 - "$GNB_CFG" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+text = Path(sys.argv[1]).read_text()
+
+patterns = (
+    r'amf_ip_address\s*=\s*\(\{\s*ipv4\s*=\s*"([^"]+)"',
+    r'GNB_IPV4_ADDRESS_FOR_NG_AMF\s*=\s*"([^"]+)"',
+    r'GNB_IPV4_ADDRESS_FOR_NGU\s*=\s*"([^"]+)"',
+)
+for pattern in patterns:
+    m = re.search(pattern, text, re.MULTILINE)
+    print(m.group(1) if m else "")
+PY
+)
+
+AMF_N2_IP="${HARP_AMF_N2_IP:-${TOPO_VALUES[0]}}"
+GNB_N2_IP="${HARP_GNB_N2_IP:-${TOPO_VALUES[1]}}"
+GNB_NGU_IP="${HARP_GNB_NGU_IP:-${TOPO_VALUES[2]}}"
+
+for pair in \
+  "amf_n2:$AMF_N2_IP" \
+  "gnb_n2:$GNB_N2_IP" \
+  "gnb_ngu:$GNB_NGU_IP"; do
+  key="${pair%%:*}"
+  value="${pair#*:}"
+  if [ -z "$value" ]; then
+    echo "ERROR: missing RFsim topology value: $key" >&2
+    exit 10
+  fi
+done
+
+echo "AMF_N2_IP=$AMF_N2_IP"
+echo "GNB_N2_IP=$GNB_N2_IP"
+echo "GNB_NGU_IP=$GNB_NGU_IP"
+
+TOPOLOGY_MODE="${HARP_TOPOLOGY_MODE:-}"
+case "$TOPOLOGY_MODE" in
+  host)
+    command -v ip >/dev/null 2>&1 \
+      || { echo "ERROR: ip command required for host topology validation" >&2; exit 11; }
+    ip addr show | grep -Fq " $AMF_N2_IP/" \
+      || { echo "ERROR: host is missing AMF N2 IP $AMF_N2_IP" >&2; exit 11; }
+    ip addr show | grep -Fq " $GNB_N2_IP/" \
+      || { echo "ERROR: host is missing gNB N2 IP $GNB_N2_IP" >&2; exit 11; }
+    echo "PASS_HARP_RFSIM_TOPOLOGY_HOST"
+    ;;
+  container)
+    if [ "${HARP_TOPOLOGY_CONFIRMED:-0}" != "1" ]; then
+      echo "ERROR: container topology requires HARP_TOPOLOGY_CONFIRMED=1" >&2
+      echo "       after verifying AMF=$AMF_N2_IP and gNB=$GNB_N2_IP routing." >&2
+      exit 12
+    fi
+    echo "PASS_HARP_RFSIM_TOPOLOGY_CONTAINER_CONFIRMED"
+    ;;
+  *)
+    echo "ERROR: set HARP_TOPOLOGY_MODE=host or container" >&2
+    exit 13
+    ;;
+esac
+
 echo "PASS_HARP_RFSIM_AUTH_LAB_PREFLIGHT"
