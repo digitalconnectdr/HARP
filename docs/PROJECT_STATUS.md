@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-11
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `4d4129d1388fb1e5a68405ca4095a14421888f25`
+**Baseline commit reviewed through:** `e099ce70f00742d93fbc6166e82bbce9c1dc3c9e`
 
 ## 0. Consolidated current status — 2026-10-09
 
@@ -3133,5 +3133,69 @@ blockers in this environment are now Gradle 9.4.1 and the Android SDK 36 /
 Build Tools 36.0.0.
 
 No APK build PASS is claimed yet.
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 51. Android local Gradle override + stale-APK protection — 2026-10-11
+
+The Android local build path no longer requires Gradle to be installed globally.
+
+Both:
+
+```
+tools/check_android_build_environment.sh
+tools/build_android_local.sh
+```
+
+now accept:
+
+```
+HARP_GRADLE=/absolute/path/to/gradle-9.4.1/bin/gradle
+```
+
+Commits:
+
+```
+1937d0af2bed706dcbd8a9099c928e2937701621
+00a2242f128ffe48fa4154e6e6f849ead3b15118
+```
+
+This allows a locally unpacked, independently verified Gradle distribution
+without modifying the system installation.
+
+The local build guide was updated accordingly:
+
+```
+docs/LOCAL_BUILD.md
+3f94462c0c6c1cd21459ca735fdac3f645df0010
+```
+
+The build runner was then hardened against stale artifacts.
+
+Before Gradle starts it now removes:
+
+```
+app/build/outputs/apk/debug/app-debug.apk
+```
+
+and only emits:
+
+```
+PASS_HARP_ANDROID_DEBUG_APK_BUILD
+```
+
+if a new non-empty APK exists after the current Gradle invocation.
+
+Commit:
+
+```
+e099ce70f00742d93fbc6166e82bbce9c1dc3c9e
+```
+
+This prevents a previous APK from being mistaken for evidence of the current
+source state.
+
+No APK PASS is claimed yet.
 No GitHub Actions were used.
 No phone installation is required yet.
