@@ -37,8 +37,8 @@ for required in src/common-src build/common-build; do
   fi
 done
 
-echo "[HARP] validating AMF blueprints..."
-bash "$ROOT/tools/oai_amf_snpn/apply_amf_blueprints.sh" "$CHECKOUT" --check
+echo "[HARP] validating full AMF blueprint chain..."
+bash "$ROOT/tools/oai_amf_snpn/check_full_amf_blueprint_chain.sh" "$CHECKOUT"
 
 echo "[HARP] applying AMF blueprints..."
 bash "$ROOT/tools/oai_amf_snpn/apply_amf_blueprints.sh" "$CHECKOUT"
