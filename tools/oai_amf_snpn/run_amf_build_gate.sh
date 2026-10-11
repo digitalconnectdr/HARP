@@ -54,10 +54,7 @@ cmake --build "$BUILD_DIR" --target amf
 
 AMF_BIN="$BUILD_DIR/amf"
 if [ ! -x "$AMF_BIN" ]; then
-  AMF_BIN="$(find "$BUILD_DIR" -type f -name amf -perm -111 | head -n1 || true)"
-fi
-if [ -z "$AMF_BIN" ] || [ ! -x "$AMF_BIN" ]; then
-  echo "ERROR: AMF binary not found after build." >&2
+  echo "ERROR: expected AMF binary not found or not executable: $AMF_BIN" >&2
   exit 6
 fi
 
