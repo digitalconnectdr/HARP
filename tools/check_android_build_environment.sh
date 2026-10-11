@@ -10,7 +10,13 @@ fail() {
 
 command -v java >/dev/null 2>&1 || fail "JDK 17 is required (java not found)"
 command -v javac >/dev/null 2>&1 || fail "JDK 17 is required (javac not found)"
-command -v gradle >/dev/null 2>&1 || fail "Gradle 9.4.1 is required (gradle not found)"
+GRADLE_BIN="${HARP_GRADLE:-gradle}"
+if [[ "$GRADLE_BIN" == */* ]]; then
+  [ -x "$GRADLE_BIN" ] || fail "Gradle executable not found: $GRADLE_BIN"
+else
+  command -v "$GRADLE_BIN" >/dev/null 2>&1 \
+    || fail "Gradle 9.4.1 is required ($GRADLE_BIN not found)"
+fi
 
 JAVA_VERSION="$(java -version 2>&1 | sed -n '1s/.*version "\([^"]*\)".*/\1/p')"
 JAVA_MAJOR="$(printf '%s' "$JAVA_VERSION" | cut -d. -f1)"
@@ -18,7 +24,7 @@ if ! [[ "$JAVA_MAJOR" =~ ^[0-9]+$ ]] || [ "$JAVA_MAJOR" -lt 17 ]; then
   fail "JDK 17 or newer required by AGP 9.2.1; detected java version $JAVA_VERSION"
 fi
 
-GRADLE_VERSION="$(gradle --version | sed -n 's/^Gradle //p' | head -n1)"
+GRADLE_VERSION="$("$GRADLE_BIN" --version | sed -n 's/^Gradle //p' | head -n1)"
 if [ "$GRADLE_VERSION" != "9.4.1" ]; then
   fail "Gradle 9.4.1 required for pinned AGP 9.2.1; detected $GRADLE_VERSION"
 fi
@@ -49,6 +55,7 @@ else
 fi
 
 echo "JAVA_VERSION=$JAVA_VERSION"
+echo "GRADLE_BIN=$GRADLE_BIN"
 echo "GRADLE_VERSION=$GRADLE_VERSION"
 echo "ANDROID_SDK_ROOT=$SDK_ROOT"
 echo "PASS_HARP_ANDROID_BUILD_ENV"
