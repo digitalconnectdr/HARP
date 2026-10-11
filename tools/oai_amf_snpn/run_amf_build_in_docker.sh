@@ -63,6 +63,9 @@ echo "[HARP] creating disposable local AMF clone..."
 git clone --no-hardlinks --no-checkout "$AMF" "$CLONE"
 git -C "$CLONE" checkout --detach "$AMF_ANCHOR"
 
+echo "[HARP] validating full AMF blueprint chain..."
+bash "$HARP/tools/oai_amf_snpn/check_full_amf_blueprint_chain.sh" "$CLONE"
+
 echo "[HARP] applying AMF SNPN blueprints to disposable clone..."
 bash "$HARP/tools/oai_amf_snpn/apply_amf_blueprints.sh" "$CLONE"
 
