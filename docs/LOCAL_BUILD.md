@@ -7,8 +7,9 @@ Este documento existe para compilar y probar HARP sin consumir GitHub Actions.
 - Android Studio con soporte para Android API 36.
 - Android SDK Platform 36.
 - Android SDK Build-Tools 36.0.0.
-- JDK 21 o el JDK compatible incluido con una versión actual de Android Studio.
+- JDK 17 o superior. AGP 9.2.x documenta JDK 17 como mínimo/default.
 - Gradle 9.4.1 si se compila desde línea de comandos sin wrapper.
+  Puede estar en `PATH` o indicarse con `HARP_GRADLE=/ruta/al/gradle`.
 
 El módulo Android es Java puro y declara:
 
@@ -97,13 +98,44 @@ Después volver a compilar el mismo variant `debug`.
 
 ## Línea de comandos
 
-Con Android SDK configurado:
+Ruta recomendada:
 
 ```bash
-gradle --no-daemon clean :app:assembleDebug
+bash tools/check_android_build_environment.sh
+bash tools/build_android_local.sh
 ```
 
-Verificación Linux/macOS:
+El segundo comando vuelve a ejecutar el preflight, corre los self-tests puros
+Java con API `--release 17`, compila `:app:assembleDebug` y exige que exista
+un APK no vacío.
+
+Si Gradle 9.4.1 está descomprimido localmente en vez de instalado globalmente:
+
+```bash
+export HARP_GRADLE="$HOME/tools/gradle-9.4.1/bin/gradle"
+bash tools/build_android_local.sh
+```
+
+Markers requeridos antes de considerar el APK listo:
+
+```
+PASS_HARP_ANDROID_BUILD_ENV
+PASS_STAGE2_PURE_JAVA_SELFTEST
+PASS_HARP_ANDROID_DEBUG_APK_BUILD
+```
+
+APK esperado:
+
+```
+app/build/outputs/apk/debug/app-debug.apk
+```
+
+El runner imprime además su SHA-256 cuando `sha256sum` está disponible.
+
+No instalar todavía en ambos teléfonos si el marker final
+`PASS_HARP_ANDROID_DEBUG_APK_BUILD` no existe.
+
+Verificación Linux/macOS adicional:
 
 ```bash
 sha256sum app/build/outputs/apk/debug/app-debug.apk
@@ -129,7 +161,10 @@ Windows:
 .\tools\run_pure_java_selftest.ps1
 ```
 
-Estos tests no sustituyen el build Android, pero validan framing, SOCKS, políticas, credenciales Stage-2, relay persistente, recuperación tras peer rechazado, config HEV y contrato JNI esperado.
+Estos tests no sustituyen el build Android, pero validan framing, SOCKS,
+políticas, credenciales Stage-2, rechazo de credenciales de una sesión anterior,
+relay persistente, recuperación tras peer rechazado, config HEV y contrato JNI
+esperado. Ambos runners compilan este subconjunto con `javac --release 17`.
 
 ## Qué NO prueba un build correcto
 
