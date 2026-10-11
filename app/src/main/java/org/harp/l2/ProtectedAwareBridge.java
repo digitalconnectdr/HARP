@@ -173,7 +173,9 @@ final class ProtectedAwareBridge implements AutoCloseable {
             throw new IllegalArgumentException("relay address is null");
         }
         InetAddress ip = address.getAddress();
-        if (!(ip instanceof Inet6Address) || !ip.isLinkLocalAddress()) {
+        if (!(ip instanceof Inet6Address)
+                || !ip.isLinkLocalAddress()
+                || ((Inet6Address) ip).getScopeId() <= 0) {
             throw new IllegalArgumentException("relay must be scoped IPv6 link-local");
         }
         if (address.getPort() <= 0 || address.getPort() > 65535) {
