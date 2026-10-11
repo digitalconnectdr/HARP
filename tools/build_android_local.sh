@@ -9,9 +9,10 @@ echo "[HARP] running pure-Java protocol self-tests..."
 bash "$ROOT/tools/run_pure_java_selftest.sh"
 
 echo "[HARP] building debug APK locally..."
+GRADLE_BIN="${HARP_GRADLE:-gradle}"
 (
   cd "$ROOT"
-  gradle --no-daemon --stacktrace :app:assembleDebug
+  "$GRADLE_BIN" --no-daemon --stacktrace :app:assembleDebug
 )
 
 APK="$ROOT/app/build/outputs/apk/debug/app-debug.apk"
