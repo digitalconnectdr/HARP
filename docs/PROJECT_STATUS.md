@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-11
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `bf31002a2f1e5beaa1f2d6abc478c621973aad02`
+**Baseline commit reviewed through:** `8b2f6c3302f0fe0c20e58a516da264ab9061fa36`
 
 ## 0. Consolidated current status — 2026-10-09
 
@@ -2859,3 +2859,126 @@ bf31002a2f1e5beaa1f2d6abc478c621973aad02
 No real RFsim PASS is claimed yet.
 No GitHub Actions were used.
 No phone installation is required yet.
+
+
+## 48. Local Android build gates prepared — 2026-10-11
+
+The Android branch now has explicit local/manual build gates and still uses no
+GitHub Actions.
+
+Build-environment gate:
+
+```
+tools/check_android_build_environment.sh
+```
+
+commit:
+
+```
+c7249a6efdd06d249fed27556e85c790077be939
+```
+
+It requires:
+
+```
+JDK 17
+Gradle 9.4.1
+Android platform android-36
+Android Build Tools 36.0.0
+```
+
+and reports whether the build is:
+
+```
+relay-preflight-only
+```
+
+when the HEV AAR is absent, or:
+
+```
+stage2a-capable
+```
+
+when the AAR exists and matches the pinned SHA-256:
+
+```
+15ec8ed121663b562c99caa5bb602d1009f24e5b09e733438b81988f12feaaab
+```
+
+Expected environment marker:
+
+```
+PASS_HARP_ANDROID_BUILD_ENV
+```
+
+Local APK runner:
+
+```
+tools/build_android_local.sh
+```
+
+commit:
+
+```
+8b2f6c3302f0fe0c20e58a516da264ab9061fa36
+```
+
+It runs:
+
+```
+Android build environment gate
+        ->
+pure-Java protocol self-tests
+        ->
+gradle --no-daemon --stacktrace :app:assembleDebug
+        ->
+require non-empty app-debug.apk
+        ->
+print APK SHA-256 when available
+```
+
+Expected final marker:
+
+```
+PASS_HARP_ANDROID_DEBUG_APK_BUILD
+```
+
+The HEV AAR is compile-time optional because `HevTunnelAdapter` uses reflection
+only and has no direct compile-time dependency on the AAR. Therefore the
+Stage-0/1/2 relay-preflight APK can be built without HEV; Stage-2A requires the
+verified AAR.
+
+Both new shell scripts were syntax-checked locally:
+
+```
+PASS_ANDROID_BUILD_SCRIPTS_SHELL_SYNTAX
+```
+
+This marker proves shell syntax only.
+
+Current execution environment:
+
+```
+java/javac  21.0.12.1
+gradle      missing
+ANDROID_SDK_ROOT unset
+ANDROID_HOME     unset
+```
+
+Therefore this environment cannot currently produce the Android APK. The
+current Android build blocker here is the local toolchain, not a demonstrated
+Java/Android source failure.
+
+The pinned project uses AGP 9.2.1, compileSdk/targetSdk 36 and Java source/target
+17. The build gate deliberately requires JDK 17 + Gradle 9.4.1 instead of
+silently accepting a different host toolchain.
+
+A Gradle bootstrap script was intentionally not added because the official
+distribution checksum was not available in a form that could be independently
+pinned in this environment. Do not introduce an unverified build-tool download.
+
+Phone installation remains blocked until a real
+`PASS_HARP_ANDROID_DEBUG_APK_BUILD` exists and the resulting APK has been
+identified by path/hash.
+
+No GitHub Actions were used.
