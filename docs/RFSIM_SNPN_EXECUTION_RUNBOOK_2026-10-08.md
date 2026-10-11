@@ -810,3 +810,66 @@ PDU-session / user-plane gates.
 
 This separation is intentional: failure of a later core-network service must
 not be allowed to obscure the SNPN KDF experiment.
+
+
+## 18. Auth-only lab readiness preflight
+
+Before starting AMF/gNB/nrUE, run:
+
+```bash
+bash tools/oai_snpn/check_rfsim_auth_lab_ready.sh \
+  /tmp/harp-snpn-rfsim \
+  /path/to/amf \
+  /path/to/nr-softmodem \
+  /path/to/nr-uesoftmodem
+```
+
+The preflight verifies:
+
+- all five generated fixture files exist;
+- AMF/gNB/nrUE binaries exist and are executable;
+- the RFsim single-variable fixture checker passes;
+- MySQL host/user/password/database are present in the generated AMF YAML;
+- MySQL hostname resolves when `getent` is available;
+- the `mysql` client is installed;
+- a real `SELECT 1` succeeds against the configured database;
+- the configured AMF N2 interface exists when the `ip` command is available.
+
+Stock pinned AMF values inherited by the generated fixture are:
+
+```
+database host     mysql
+database user     test
+database password test
+database name     oai_db
+AMF N2 interface  eth0
+AMF N2 port       38412
+```
+
+For a host-native or custom-container topology, overrides are available:
+
+```
+HARP_MYSQL_HOST
+HARP_MYSQL_USER
+HARP_MYSQL_PASSWORD
+HARP_MYSQL_DATABASE
+HARP_AMF_N2_IFACE
+```
+
+Required final marker:
+
+```
+PASS_HARP_RFSIM_AUTH_LAB_PREFLIGHT
+```
+
+Supporting markers may include:
+
+```
+PASS_HARP_RFSIM_SINGLE_VARIABLE_FIXTURES
+PASS_HARP_MYSQL_HOST_RESOLUTION
+PASS_HARP_MYSQL_CONNECTIVITY
+PASS_HARP_AMF_N2_INTERFACE
+```
+
+Do not start the paired authentication experiment until the final preflight
+marker is produced in the target lab environment.
