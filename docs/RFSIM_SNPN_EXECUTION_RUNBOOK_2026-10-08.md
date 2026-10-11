@@ -873,3 +873,72 @@ PASS_HARP_AMF_N2_INTERFACE
 
 Do not start the paired authentication experiment until the final preflight
 marker is produced in the target lab environment.
+
+
+## 19. Topology must match the actual fixture files
+
+The auth-lab preflight reads deployment values from the files that AMF/gNB will
+actually consume. Environment variables are **not** allowed to override MySQL,
+N2 interface or N2/NG-U IP values only inside the checker.
+
+The pinned/generated gNB baseline currently carries:
+
+```
+AMF N2 peer    192.168.71.132
+gNB N2 local   192.168.71.140
+gNB NG-U local 192.168.71.140
+```
+
+The pinned/generated AMF baseline carries:
+
+```
+N2 interface   eth0
+MySQL host     mysql
+MySQL user     test
+MySQL password test
+database       oai_db
+```
+
+If the runtime topology differs, change the actual generated fixtures:
+
+- update database/N2 deployment fields in **both**
+  `amf.harp-snpn-positive.yaml` and
+  `amf.harp-snpn-negative.yaml` identically;
+- update the gNB N2/NG-U addresses in `gnb.harp-snpn.conf`;
+- do not change IMSI/Ki/OPc/SQN/PLMN/NID experimental fields;
+- rerun:
+
+```bash
+python3 tools/oai_snpn/check_rfsim_fixture_pair.py /tmp/harp-snpn-rfsim
+```
+
+before the readiness preflight.
+
+Then choose one topology mode:
+
+Host-native, same network namespace:
+
+```bash
+export HARP_TOPOLOGY_MODE=host
+```
+
+The preflight requires the AMF and gNB N2 addresses from the fixture to be
+present on the host.
+
+Container/network-namespace deployment:
+
+```bash
+export HARP_TOPOLOGY_MODE=container
+export HARP_TOPOLOGY_CONFIRMED=1
+```
+
+Set the confirmation only after verifying that the addresses encoded in the
+fixture are actually routed/reachable between the AMF and gNB namespaces.
+
+The final marker:
+
+```
+PASS_HARP_RFSIM_AUTH_LAB_PREFLIGHT
+```
+
+is not emitted until one topology mode has passed.
