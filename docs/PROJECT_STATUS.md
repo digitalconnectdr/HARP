@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-11
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `48a57458cda42417d47e515f48fd9eee2fb8bebf`
+**Baseline commit reviewed through:** `bf31002a2f1e5beaa1f2d6abc478c621973aad02`
 
 ## 0. Consolidated current status — 2026-10-09
 
@@ -2798,3 +2798,64 @@ contract expected by the transport.
 Android APK/device validation is still pending.
 No phone installation is required yet.
 No GitHub Actions were used.
+
+
+## 47. Minimal RFsim auth lab preflight added — 2026-10-11
+
+A host/container readiness checker was added for the reduced auth/KDF stack:
+
+```
+tools/oai_snpn/check_rfsim_auth_lab_ready.sh
+```
+
+Initial commit:
+
+```
+55a80597d644e1587b02462f275d1b0a8e98c4ff
+```
+
+It was then hardened so MySQL connectivity is mandatory rather than optional,
+and to validate the configured AMF N2 interface when possible:
+
+```
+c53db1d3a12426a0eee4ba2bcd86da6879ac69b3
+```
+
+The script validates:
+
+```
+fixtures
+AMF binary
+nr-softmodem
+nr-uesoftmodem
+single-variable fixture invariant
+MySQL config
+MySQL DNS resolution
+MySQL SELECT 1
+AMF N2 interface
+```
+
+A local syntax execution of an exact script copy produced:
+
+```
+PASS_AUTH_PREFLIGHT_SHELL_SYNTAX
+```
+
+This is a shell-syntax PASS only. The final runtime marker:
+
+```
+PASS_HARP_RFSIM_AUTH_LAB_PREFLIGHT
+```
+
+still requires execution in the actual lab environment with reachable MySQL
+and built binaries.
+
+Runbook update:
+
+```
+bf31002a2f1e5beaa1f2d6abc478c621973aad02
+```
+
+No real RFsim PASS is claimed yet.
+No GitHub Actions were used.
+No phone installation is required yet.
