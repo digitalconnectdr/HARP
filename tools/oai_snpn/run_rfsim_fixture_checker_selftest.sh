@@ -120,3 +120,31 @@ if python3 "$ROOT/tools/oai_snpn/check_rfsim_fixture_pair.py" "$TMP"; then
 fi
 
 echo "PASS_RFSIM_FIXTURE_INVARIANT_SELFTEST"
+
+# Negative: AMF PLMN drift while UE/gNB remain at 999/99.
+write_valid
+python3 - "$TMP/amf.harp-snpn-positive.yaml" "$TMP/amf.harp-snpn-negative.yaml" <<'PY'
+from pathlib import Path
+import sys
+for name in sys.argv[1:]:
+    p = Path(name)
+    s = p.read_text()
+    p.write_text(s.replace("    - mcc: 999\n      mnc: 99\n      amf_region_id: 01",
+                           "    - mcc: 998\n      mnc: 99\n      amf_region_id: 01", 1))
+PY
+if python3 "$ROOT/tools/oai_snpn/check_rfsim_fixture_pair.py" "$TMP"; then
+  echo "ERROR: checker accepted AMF GUAMI PLMN drift" >&2
+  exit 1
+fi
+
+# Negative: simple scenario disabled in both AMF configs.
+write_valid
+sed -i 's/enable_simple_scenario: yes/enable_simple_scenario: no/' \
+  "$TMP/amf.harp-snpn-positive.yaml" \
+  "$TMP/amf.harp-snpn-negative.yaml"
+if python3 "$ROOT/tools/oai_snpn/check_rfsim_fixture_pair.py" "$TMP"; then
+  echo "ERROR: checker accepted disabled AMF simple scenario" >&2
+  exit 1
+fi
+
+echo "PASS_RFSIM_FIXTURE_AMF_IDENTITY_MODE_REJECTED"
