@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-11
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `bb1d91d4715fbbe1aa7c0900f4e63a0cfaea14e1`
+**Baseline commit reviewed through:** `c9b3b64825e8df81422fed426177dbdfe72e48e4`
 
 ## 0. Consolidated current status — 2026-10-09
 
@@ -2527,6 +2527,87 @@ AMF full compile                     PENDING
 RFsim positive                       PENDING
 RFsim mismatched-NID negative        PENDING
 ```
+
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 43. Full AMF blueprint chain revalidated and gated — 2026-10-11
+
+The current AMF blueprint chain was revalidated against the exact pinned AMF
+commit:
+
+```
+5eedea557a3745b13ed9ec4bf29e6a28bd912574
+```
+
+Current shape:
+
+```
+2 blueprint files
+20 parser hunks
+6 upstream target files
+```
+
+Sequential connector-side validation required every old context block to match
+exactly once before replacement and produced:
+
+```
+PASS_AMF_BLUEPRINT_CHAIN
+20/20 hunks
+0 failures
+```
+
+A dedicated reproducible gate was added:
+
+```
+tools/oai_amf_snpn/check_full_amf_blueprint_chain.sh
+```
+
+commit:
+
+```
+24be0cbdbb7ae0fed8fb2bc597b7bdbaa5b036c5
+```
+
+It requires:
+
+```
+exact AMF HEAD
+clean worktree
+2 blueprint files
+20 applied/check hunks
+PASS_CONTEXT_BLUEPRINT_CHECK
+```
+
+and emits:
+
+```
+PASS_HARP_AMF_FULL_BLUEPRINT_CHAIN
+```
+
+The host AMF build runner now invokes this full-chain gate before applying
+blueprints:
+
+```
+70afaae50c2bd1cac86271d3d1f24a341fdb9387
+```
+
+The Docker AMF build runner does the same on its disposable clone:
+
+```
+c9b3b64825e8df81422fed426177dbdfe72e48e4
+```
+
+Current context-level frontier:
+
+```
+OAI blueprint chain   PASS 75/75
+AMF blueprint chain   PASS 20/20
+```
+
+These are context-applicability PASS markers only. They do not imply compile or
+runtime PASS.
 
 No GitHub Actions were used.
 No phone installation is required yet.
