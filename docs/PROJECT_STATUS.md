@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-11
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `a29292cc9a347264f2fe28b9d2821fdff2b5f09e`
+**Baseline commit reviewed through:** `2e0ef12f826f1dd95e1484c688e3dae2dd77e9f6`
 
 ## 0. Consolidated current status — 2026-10-09
 
@@ -2649,5 +2649,70 @@ The build gate now fails unless the exact CMake output path exists and is
 executable.
 
 No real AMF compile PASS is claimed yet.
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 45. Minimal auth/KDF runtime stack established — 2026-10-11
+
+Pinned AMF source was audited to determine the smallest service set required to
+reach the HARP SNPN authentication marker.
+
+With:
+
+```
+enable_simple_scenario: yes
+```
+
+the AMF generates UDM/AUSF authentication vectors locally from MySQL-backed
+subscriber data and derives KAMF internally.
+
+Pinned configuration also initializes:
+
+```
+enable_nf_registration = false
+```
+
+so NRF registration is not required for this path.
+
+The HARP auth marker is emitted immediately after RES*/HRES* acceptance and
+before Security Mode Control.
+
+Therefore the first SNPN KDF positive/negative experiment requires only:
+
+```
+MySQL
+AMF
+gNB RFsim
+nrUE RFsim
+```
+
+It does not require the following services to reach
+`PASS_V5G_SNPN_AUTH_AMF`:
+
+```
+NRF
+external AUSF
+external UDM
+UDR
+NSSF
+PCF
+SMF
+UPF
+```
+
+Those broader core functions remain deferred to later registration/PDU/user-plane
+gates.
+
+Runbook:
+
+```
+2e0ef12f826f1dd95e1484c688e3dae2dd77e9f6
+```
+
+This materially reduces the cost and operational complexity of the first real
+RFsim experiment.
+
+No real RFsim PASS is claimed yet.
 No GitHub Actions were used.
 No phone installation is required yet.
