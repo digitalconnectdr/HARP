@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-11
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `533aeaf93fe172208d6726119e8b1dbb95f8e259`
+**Baseline commit reviewed through:** `4d4129d1388fb1e5a68405ca4095a14421888f25`
 
 ## 0. Consolidated current status — 2026-10-09
 
@@ -2965,13 +2965,19 @@ ANDROID_SDK_ROOT unset
 ANDROID_HOME     unset
 ```
 
-Therefore this environment cannot currently produce the Android APK. The
-current Android build blocker here is the local toolchain, not a demonstrated
-Java/Android source failure.
+Therefore this environment still cannot currently produce the Android APK, but
+JDK 21 is no longer considered a blocker. AGP 9.2 documents JDK 17 as its
+minimum/default; the build gate now accepts JDK 17 or newer.
 
-The pinned project uses AGP 9.2.1, compileSdk/targetSdk 36 and Java source/target
-17. The build gate deliberately requires JDK 17 + Gradle 9.4.1 instead of
-silently accepting a different host toolchain.
+The remaining local build blockers are:
+
+```
+Gradle 9.4.1 missing
+Android SDK platform 36 unavailable/unconfigured
+Android Build Tools 36.0.0 unavailable/unconfigured
+```
+
+The pinned project still compiles Java source/target at version 17.
 
 A Gradle bootstrap script was intentionally not added because the official
 distribution checksum was not available in a form that could be independently
@@ -3051,5 +3057,81 @@ else hard fail
 No unencrypted fallback is present.
 
 Android APK/device validation remains pending.
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 50. Android Java-17 reproducibility + Stage2 stale-credential regression — 2026-10-11
+
+Stage-2 authentication lifecycle was reviewed.
+
+The SOCKS5 implementation already compares credentials with a constant-time
+byte loop rather than `String.equals()`; no change was required there.
+
+A missing regression was added to the pure-Java Stage-2 suite:
+
+```
+old session credentials
+        +
+new relay with fresh credentials
+        ->
+SOCKS authentication must fail
+```
+
+Commit:
+
+```
+107a072d61d2ff538ad699acda884b51d0622751
+```
+
+New expected marker:
+
+```
+PASS_STAGE2_STALE_CREDENTIALS_REJECTED
+```
+
+This test is committed but has not been rerun in the current environment after
+the latest edit, because repository source materialization from GitHub is
+blocked here. It remains READY, not current execution PASS.
+
+Pure-Java self-tests were also pinned to the Java 17 API surface:
+
+```
+javac --release 17 -Xlint:all -Werror
+```
+
+Commits:
+
+```
+e4cf9aacf7462e91b20571f65aaeff4aceac924a  shell
+a96fc402e8e40c7f7159371d459bb0736bad1270  PowerShell
+```
+
+This prevents a newer host JDK from accidentally introducing post-Java-17 API
+usage into the protocol helpers.
+
+### JDK preflight correction
+
+The first Android build preflight required exactly JDK 17. Current Android/AGP
+documentation defines JDK 17 as the minimum/default for AGP 9.2, and recommends
+using a JDK version greater than or equal to the plugin minimum.
+
+The preflight was therefore corrected to accept:
+
+```
+JDK >= 17
+```
+
+Commit:
+
+```
+4d4129d1388fb1e5a68405ca4095a14421888f25
+```
+
+Consequently, the current local JDK 21 is acceptable. The actual Android build
+blockers in this environment are now Gradle 9.4.1 and the Android SDK 36 /
+Build Tools 36.0.0.
+
+No APK build PASS is claimed yet.
 No GitHub Actions were used.
 No phone installation is required yet.
