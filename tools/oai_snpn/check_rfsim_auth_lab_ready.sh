@@ -104,18 +104,58 @@ else
   echo "WARN: getent unavailable; MySQL host resolution not checked"
 fi
 
-if command -v mysql >/dev/null 2>&1; then
-  if ! MYSQL_PWD="$DB_PASS" mysql \
-      -h "$DB_HOST" \
-      -u "$DB_USER" \
-      "$DB_NAME" \
-      -Nse 'SELECT 1' 2>/dev/null | grep -qx '1'; then
-    echo "ERROR: MySQL connectivity/query preflight failed" >&2
-    exit 7
+if ! command -v mysql >/dev/null 2>&1; then
+  echo "ERROR: mysql client is required for subscriber reset/connectivity checks" >&2
+  exit 7
+fi
+
+if ! MYSQL_PWD="$DB_PASS" mysql \
+    -h "$DB_HOST" \
+    -u "$DB_USER" \
+    "$DB_NAME" \
+    -Nse 'SELECT 1' 2>/dev/null | grep -qx '1'; then
+  echo "ERROR: MySQL connectivity/query preflight failed" >&2
+  exit 8
+fi
+echo "PASS_HARP_MYSQL_CONNECTIVITY"
+
+N2_IFACE="${HARP_AMF_N2_IFACE:-$(python3 - "$AMF_CFG" <<'PY'
+from pathlib import Path
+import sys
+
+lines = Path(sys.argv[1]).read_text().splitlines()
+in_amf_nf = False
+in_n2 = False
+for line in lines:
+    if line == "  amf:":
+        in_amf_nf = True
+        continue
+    if in_amf_nf and line.startswith("  ") and not line.startswith("    ") and line.strip().endswith(":"):
+        break
+    if in_amf_nf and line.strip() == "n2:":
+        in_n2 = True
+        continue
+    if in_n2:
+        if line.strip().startswith("interface_name:"):
+            print(line.split(":", 1)[1].strip().strip('"'))
+            break
+        if line and not line.startswith("      "):
+            break
+PY
+)}"
+
+if [ -n "$N2_IFACE" ]; then
+  echo "AMF_N2_INTERFACE=$N2_IFACE"
+  if command -v ip >/dev/null 2>&1; then
+    if ! ip link show "$N2_IFACE" >/dev/null 2>&1; then
+      echo "ERROR: configured AMF N2 interface is not present: $N2_IFACE" >&2
+      echo "       Override with HARP_AMF_N2_IFACE=<runtime-interface> if needed." >&2
+      exit 9
+    fi
+    echo "PASS_HARP_AMF_N2_INTERFACE"
+  else
+    echo "WARN: ip command unavailable; N2 interface presence not checked"
   fi
-  echo "PASS_HARP_MYSQL_CONNECTIVITY"
-else
-  echo "WARN: mysql client unavailable; DB connectivity not checked"
 fi
 
 echo "PASS_HARP_RFSIM_AUTH_LAB_PREFLIGHT"
