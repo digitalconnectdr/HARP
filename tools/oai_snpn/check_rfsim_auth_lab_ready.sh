@@ -68,10 +68,10 @@ for key in ("host", "user", "password", "database_name"):
 PY
 )
 
-DB_HOST="${HARP_MYSQL_HOST:-${DB_VALUES[0]}}"
-DB_USER="${HARP_MYSQL_USER:-${DB_VALUES[1]}}"
-DB_PASS="${HARP_MYSQL_PASSWORD:-${DB_VALUES[2]}}"
-DB_NAME="${HARP_MYSQL_DATABASE:-${DB_VALUES[3]}}"
+DB_HOST="${DB_VALUES[0]}"
+DB_USER="${DB_VALUES[1]}"
+DB_PASS="${DB_VALUES[2]}"
+DB_NAME="${DB_VALUES[3]}"
 
 for pair in \
   "host:$DB_HOST" \
@@ -96,7 +96,7 @@ echo "MYSQL_DATABASE=$DB_NAME"
 if command -v getent >/dev/null 2>&1; then
   if ! getent hosts "$DB_HOST" >/dev/null 2>&1; then
     echo "ERROR: MySQL host does not resolve: $DB_HOST" >&2
-    echo "       Override with HARP_MYSQL_HOST=<reachable-host> if needed." >&2
+    echo "       Update both AMF fixture YAMLs to the reachable database host." >&2
     exit 6
   fi
   echo "PASS_HARP_MYSQL_HOST_RESOLUTION"
@@ -119,7 +119,7 @@ if ! MYSQL_PWD="$DB_PASS" mysql \
 fi
 echo "PASS_HARP_MYSQL_CONNECTIVITY"
 
-N2_IFACE="${HARP_AMF_N2_IFACE:-$(python3 - "$AMF_CFG" <<'PY'
+N2_IFACE="$(python3 - "$AMF_CFG" <<'PY'
 from pathlib import Path
 import sys
 
@@ -142,14 +142,14 @@ for line in lines:
         if line and not line.startswith("      "):
             break
 PY
-)}"
+)"
 
 if [ -n "$N2_IFACE" ]; then
   echo "AMF_N2_INTERFACE=$N2_IFACE"
   if command -v ip >/dev/null 2>&1; then
     if ! ip link show "$N2_IFACE" >/dev/null 2>&1; then
       echo "ERROR: configured AMF N2 interface is not present: $N2_IFACE" >&2
-      echo "       Override with HARP_AMF_N2_IFACE=<runtime-interface> if needed." >&2
+      echo "       Update both AMF fixture YAMLs to the runtime N2 interface." >&2
       exit 9
     fi
     echo "PASS_HARP_AMF_N2_INTERFACE"
@@ -177,9 +177,9 @@ for pattern in patterns:
 PY
 )
 
-AMF_N2_IP="${HARP_AMF_N2_IP:-${TOPO_VALUES[0]}}"
-GNB_N2_IP="${HARP_GNB_N2_IP:-${TOPO_VALUES[1]}}"
-GNB_NGU_IP="${HARP_GNB_NGU_IP:-${TOPO_VALUES[2]}}"
+AMF_N2_IP="${TOPO_VALUES[0]}"
+GNB_N2_IP="${TOPO_VALUES[1]}"
+GNB_NGU_IP="${TOPO_VALUES[2]}"
 
 for pair in \
   "amf_n2:$AMF_N2_IP" \
