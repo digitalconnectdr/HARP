@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-11
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `c9b3b64825e8df81422fed426177dbdfe72e48e4`
+**Baseline commit reviewed through:** `a29292cc9a347264f2fe28b9d2821fdff2b5f09e`
 
 ## 0. Consolidated current status — 2026-10-09
 
@@ -2609,5 +2609,45 @@ AMF blueprint chain   PASS 20/20
 These are context-applicability PASS markers only. They do not imply compile or
 runtime PASS.
 
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 44. AMF build artifact path made exact — 2026-10-11
+
+Pinned AMF CMake was rechecked:
+
+```
+build/amf/CMakeLists.txt
+  include(../../src/oai-amf/CMakeLists.txt)
+
+src/oai-amf/CMakeLists.txt
+  add_executable(amf ...)
+```
+
+There is no alternate `OUTPUT_NAME` or runtime output directory in the pinned
+configuration used by the direct HARP build gate.
+
+Therefore the expected binary is exactly:
+
+```
+$BUILD_DIR/amf
+```
+
+The previous fallback searched recursively for any executable named `amf`,
+which could theoretically accept a stale or unrelated artifact.
+
+That fallback was removed.
+
+Commit:
+
+```
+a29292cc9a347264f2fe28b9d2821fdff2b5f09e
+```
+
+The build gate now fails unless the exact CMake output path exists and is
+executable.
+
+No real AMF compile PASS is claimed yet.
 No GitHub Actions were used.
 No phone installation is required yet.
