@@ -25,7 +25,7 @@ $Sources = @(
     (Join-Path $Root "tools\Stage2PureJavaSelfTest.java")
 )
 
-& javac -Xlint:all -Werror -d $Out $Sources
+& javac --release 17 -Xlint:all -Werror -d $Out $Sources
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
