@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-11
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `2e0ef12f826f1dd95e1484c688e3dae2dd77e9f6`
+**Baseline commit reviewed through:** `48a57458cda42417d47e515f48fd9eee2fb8bebf`
 
 ## 0. Consolidated current status — 2026-10-09
 
@@ -2716,3 +2716,85 @@ RFsim experiment.
 No real RFsim PASS is claimed yet.
 No GitHub Actions were used.
 No phone installation is required yet.
+
+
+## 46. Android Stage-2A stale-callback and IPv6-scope hardening — 2026-10-11
+
+The Android lifecycle path was reviewed in parallel with the SNPN work.
+
+### Stale Aware callback race
+
+A real reset race was identified:
+
+1. controller A owns an old Wi-Fi Aware NDP;
+2. `HarpRuntime.reset()` closes controller A and creates controller B;
+3. an old `NetworkCallback.onLost()` from controller A can arrive late;
+4. before this fix, that stale callback still called
+   `stopStage2VpnAfterTransportLoss()`;
+5. it could therefore stop a VPN belonging to the new controller/session.
+
+Commit:
+
+```
+737a577c2e5bd135358abb6110b89a6d4ec0160e
+```
+
+Client NDP callbacks now return immediately when their controller is already
+closed:
+
+```
+onAvailable
+onCapabilitiesChanged
+onUnavailable
+onLost
+```
+
+`maybeRun()` also rejects late callbacks after close.
+
+In addition, `HarpAwareController.close()` now explicitly stops Stage-2A VPN
+before dismantling Aware state instead of relying on a later network-loss
+callback.
+
+The UI was checked and already calls `HarpRuntime.reset()` before switching
+between CLIENT and RELAY roles, so the shared callback field is not reused
+across roles in normal UI flow.
+
+### Scoped IPv6 link-local enforcement
+
+Stage-2A requires the peer address obtained from Wi-Fi Aware to be a scoped
+link-local IPv6 address.
+
+The previous code checked only:
+
+```
+Inet6Address
+isLinkLocalAddress()
+```
+
+It now also requires:
+
+```
+getScopeId() > 0
+```
+
+in both:
+
+```
+Stage2VpnSession
+ProtectedAwareBridge
+```
+
+Commits:
+
+```
+4039dade47ec9e70a841d9335e106e966c8965a5
+48a57458cda42417d47e515f48fd9eee2fb8bebf
+```
+
+Android's Wi-Fi Aware API documents `getPeerIpv6Addr()` as returning the
+peer's scoped link-local IPv6 address, so this is a fail-fast validation of the
+contract expected by the transport.
+
+Android APK/device validation is still pending.
+No phone installation is required yet.
+No GitHub Actions were used.
