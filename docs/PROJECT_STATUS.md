@@ -1,8 +1,8 @@
 # HARP — Project Status
 
-**Baseline date:** 2026-10-09  
+**Baseline date:** 2026-10-11
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `f4b0d0705afb2d71a1a62da179e031801e2b9b97`
+**Baseline commit reviewed through:** `bb1d91d4715fbbe1aa7c0900f4e63a0cfaea14e1`
 
 ## 0. Consolidated current status — 2026-10-09
 
@@ -2449,5 +2449,84 @@ fail-closed behavior.
 
 No real OAI build PASS is claimed yet.
 No RFsim PASS is claimed yet.
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 42. Full 12-blueprint OAI context chain revalidated — 2026-10-11
+
+The current OAI blueprint set was revalidated against the exact pinned upstream
+commit:
+
+```
+f8f769592a7030be88ede4bb5ca66fa1ca6a80e0
+```
+
+Current blueprint shape:
+
+```
+12 blueprint files
+75 parser hunks
+```
+
+A previous hardening edit temporarily set the expected hunk count to 43 based
+on an obsolete historical count. Direct inspection of the current 12 patch
+files showed 75 `@@` hunks. The applicator parser was then reviewed and
+confirmed to count each `@@` block as one hunk.
+
+The checker was corrected before runtime use:
+
+```
+56da6fb6b4a46e82256c0c367d5cd68055232c69  [incorrect 43, superseded]
+bb1d91d4715fbbe1aa7c0900f4e63a0cfaea14e1  [correct 75]
+```
+
+A parser-shape validation of all 12 files produced:
+
+```
+PASS_BLUEPRINT_PARSER_SHAPE_75
+```
+
+Then the full chain was validated sequentially against the pinned OAI source in
+three connector-side batches, preserving patch order and requiring every old
+context block to occur exactly once before replacement:
+
+```
+Batch 1: 8 upstream files, 50/50 hunks
+PASS_OAI_CHAIN_BATCH1
+
+Batch 2: 8 upstream files, 24/24 hunks
+PASS_OAI_CHAIN_BATCH2
+
+Batch 3: new file tests/nrdlbench/test_snpn_sib1_codec.c
+- absent upstream as required
+- exactly one additions-only new-file hunk
+- 213 added lines
+PASS_OAI_CHAIN_BATCH3_NEWFILE
+```
+
+Aggregate context applicability:
+
+```
+PASS_OAI_CRITICAL_BLUEPRINT_CHAIN_75_OF_75
+```
+
+Scope discipline:
+
+This PASS proves current context applicability and sequential anchor uniqueness
+against the exact pinned OAI commit. It does **not** prove compilation, CMake
+linking, CTest success or RFsim runtime behavior.
+
+Current frontier:
+
+```
+OAI 12-blueprint context chain       PASS 75/75
+OAI full compile                     PENDING
+OAI focused CTest                    PENDING
+AMF full compile                     PENDING
+RFsim positive                       PENDING
+RFsim mismatched-NID negative        PENDING
+```
+
 No GitHub Actions were used.
 No phone installation is required yet.
