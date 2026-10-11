@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-11
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `8b2f6c3302f0fe0c20e58a516da264ab9061fa36`
+**Baseline commit reviewed through:** `533aeaf93fe172208d6726119e8b1dbb95f8e259`
 
 ## 0. Consolidated current status — 2026-10-09
 
@@ -2982,3 +2982,74 @@ Phone installation remains blocked until a real
 identified by path/hash.
 
 No GitHub Actions were used.
+
+
+## 49. Android upstream READY marker and platform preflight audit — 2026-10-11
+
+Relay B's Internet-selection and Android platform preflight paths were reviewed.
+
+### Stage-2 upstream READY race
+
+The relay already revalidated the selected Internet `Network` before
+registering its long-lived upstream watch.
+
+A smaller TOCTOU window remained between watch registration / relay startup and
+publication of:
+
+```
+PASS_STAGE2_RELAY_READY
+```
+
+Commit:
+
+```
+533aeaf93fe172208d6726119e8b1dbb95f8e259
+```
+
+After the persistent relay listener starts, B now performs a second
+`InternetNetworkSelector.isUsableInternet()` check. If INTERNET/VALIDATED was
+lost during startup, the relay is closed and READY is not emitted.
+
+### Android foreground-service requirements
+
+The manifest was checked against current Android foreground-service rules.
+
+It already declares:
+
+```
+android:foregroundServiceType="connectedDevice"
+android.permission.FOREGROUND_SERVICE
+android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE
+android.permission.CHANGE_NETWORK_STATE
+android.permission.CHANGE_WIFI_STATE
+```
+
+The connected-device foreground-service type accepts declared network/Wi-Fi
+change permissions as a runtime prerequisite, so no manifest change is required
+for this point.
+
+### Wi-Fi Aware device preflight
+
+`HarpAwareController.preflight()` already fails before attach unless:
+
+```
+FEATURE_WIFI_AWARE exists
+WifiAwareManager exists
+WifiAwareManager.isAvailable() == true
+```
+
+and records cipher-suite characteristics when available.
+
+API 33+ Aware security was also reviewed:
+
+```
+prefer NCS_SK_256
+else NCS_SK_128
+else hard fail
+```
+
+No unencrypted fallback is present.
+
+Android APK/device validation remains pending.
+No GitHub Actions were used.
+No phone installation is required yet.
