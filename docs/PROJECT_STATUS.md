@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-11
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `e099ce70f00742d93fbc6166e82bbce9c1dc3c9e`
+**Baseline commit reviewed through:** `fa0dfa37527ea487d8cfc7d53f14d16e7cb1ff66`
 
 ## 0. Consolidated current status — 2026-10-09
 
@@ -3197,5 +3197,78 @@ This prevents a previous APK from being mistaken for evidence of the current
 source state.
 
 No APK PASS is claimed yet.
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 52. RFsim topology is now validated from execution fixtures — 2026-10-11
+
+The auth-lab readiness gate was strengthened so topology checks cannot be
+overridden independently of the files consumed by AMF/gNB.
+
+A first topology hardening added extraction of the generated gNB addresses and
+required an explicit deployment mode:
+
+```
+2783ec562daad4bcdd51b15b9933126e148e6201
+```
+
+The pinned baseline topology is:
+
+```
+AMF N2 peer       192.168.71.132
+gNB N2 local      192.168.71.140
+gNB NG-U local    192.168.71.140
+AMF N2 interface  eth0
+MySQL host        mysql
+```
+
+Modes:
+
+```
+HARP_TOPOLOGY_MODE=host
+```
+
+requires the fixture N2 addresses to exist in the host namespace.
+
+```
+HARP_TOPOLOGY_MODE=container
+HARP_TOPOLOGY_CONFIRMED=1
+```
+
+requires explicit confirmation after namespace/container routing has been
+verified.
+
+A design issue was then found: environment overrides for DB/N2 values could
+change what the checker validated without changing what AMF/gNB would actually
+read from YAML/conf.
+
+Those deployment-value overrides were removed:
+
+```
+a21dcbe85e92912cf614c7f7b615803405fd82f7
+```
+
+The preflight now validates only the values contained in the actual fixture
+files.
+
+If deployment topology changes, the positive/negative AMF fixture YAMLs must be
+edited identically, the gNB deployment addresses must be updated, and the
+single-variable invariant checker must be rerun before the readiness gate.
+
+Runbook update:
+
+```
+fa0dfa37527ea487d8cfc7d53f14d16e7cb1ff66
+```
+
+The final runtime marker remains:
+
+```
+PASS_HARP_RFSIM_AUTH_LAB_PREFLIGHT
+```
+
+and is still PENDING actual lab execution.
+
 No GitHub Actions were used.
 No phone installation is required yet.
