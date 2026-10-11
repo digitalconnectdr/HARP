@@ -734,3 +734,79 @@ HARP_SNPN_AUTH_FAILURE_UE
 ```
 
 is invalid for the NID experiment and must be rerun from fresh processes.
+
+
+## 17. Minimal service stack for the first auth/KDF gate
+
+For the first HARP SNPN experiment, do **not** start the full 5GC unless a later
+registration/PDU-session gate requires it.
+
+Pinned AMF behavior was audited around the Registration Request and
+authentication-vector path.
+
+With:
+
+```
+enable_simple_scenario: yes
+```
+
+the AMF executes:
+
+```
+authentication_vectors_generator_in_udm()
+        ->
+authentication_vectors_generator_in_ausf()
+        ->
+derive_kamf()
+```
+
+locally inside the AMF, using subscriber data from MySQL.
+
+The pinned AMF also initializes:
+
+```
+enable_nf_registration = false
+```
+
+so NRF registration is not required for this path.
+
+The HARP marker:
+
+```
+PASS_V5G_SNPN_AUTH_AMF
+```
+
+is emitted immediately after RES*/HRES* authentication acceptance and before
+Security Mode Control. No SMF/UPF/PCF interaction is required to reach that
+marker.
+
+Therefore the minimum runtime stack for the first positive/negative KDF proof is:
+
+```
+MySQL subscriber DB
+        +
+HARP-patched AMF
+        +
+HARP-patched gNB (RFsim)
+        +
+HARP-patched nrUE (RFsim)
+```
+
+External services that are **not required** to reach the auth/KDF gate:
+
+```
+NRF
+external AUSF
+external UDM
+UDR
+NSSF
+PCF
+SMF
+UPF
+```
+
+SMF/UPF and the broader core become relevant only for later registration /
+PDU-session / user-plane gates.
+
+This separation is intentional: failure of a later core-network service must
+not be allowed to obscure the SNPN KDF experiment.
