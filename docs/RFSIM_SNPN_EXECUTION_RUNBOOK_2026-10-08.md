@@ -144,6 +144,39 @@ opc  = C42449363BBAD02B66D16BC975D77CC1
 
 This reset is essential to keep the negative experiment single-variable.
 
+## 5.1 Runtime artifact preflight
+
+Before starting AMF/gNB/nrUE, run:
+
+```bash
+bash tools/oai_snpn/check_auth_only_runtime_artifacts.sh \
+  /path/to/oai-build \
+  /path/to/amf-binary \
+  /tmp/harp-snpn-rfsim
+```
+
+Required marker:
+
+```
+PASS_HARP_AUTH_ONLY_RUNTIME_ARTIFACTS
+```
+
+This verifies:
+
+```
+nr-softmodem
+nr-uesoftmodem
+librfsimulator.so
+AMF executable
+all generated fixtures
+single-variable fixture invariant
+positive auth-only AMF config
+negative auth-only AMF config
+```
+
+It does not prove that MySQL, N2 networking or RFsim sockets are reachable yet;
+those are runtime checks during the actual experiment.
+
 ## 6. Positive experiment
 
 ### 6.1 AMF
