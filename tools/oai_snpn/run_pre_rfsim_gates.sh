@@ -105,4 +105,29 @@ for marker in "${required_markers[@]}"; do
   fi
 done
 
+echo "[HARP] building RFsim runtime artifacts..."
+cmake --build "$BUILD_DIR" --target \
+  nr-softmodem \
+  nr-uesoftmodem \
+  rfsimulator
+
+GNB_BIN="$BUILD_DIR/nr-softmodem"
+UE_BIN="$BUILD_DIR/nr-uesoftmodem"
+RFSIM_LIB="$BUILD_DIR/librfsimulator.so"
+
+for artifact in "$GNB_BIN" "$UE_BIN"; do
+  if [ ! -x "$artifact" ]; then
+    echo "ERROR: expected RFsim executable missing or not executable: $artifact" >&2
+    exit 9
+  fi
+done
+if [ ! -f "$RFSIM_LIB" ]; then
+  echo "ERROR: expected RFsim module missing: $RFSIM_LIB" >&2
+  exit 9
+fi
+
+echo "PASS_HARP_OAI_RFSIM_BINARIES"
+echo "RFSIM_GNB_BINARY=$GNB_BIN"
+echo "RFSIM_UE_BINARY=$UE_BIN"
+echo "RFSIM_MODULE=$RFSIM_LIB"
 echo "PASS_HARP_OAI_SNPN_PRE_RFSIM_GATES"
