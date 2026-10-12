@@ -942,3 +942,114 @@ PASS_HARP_RFSIM_AUTH_LAB_PREFLIGHT
 ```
 
 is not emitted until one topology mode has passed.
+
+
+## 17. Minimal auth/KDF laboratory stack
+
+The first SNPN/KDF proof does **not** require the full 5GC.
+
+With:
+
+```
+support_features_options:
+    enable_simple_scenario: yes
+```
+
+the pinned AMF:
+
+- generates UDM authentication vectors internally;
+- generates AUSF-side vectors internally;
+- derives KAMF locally;
+- disables NF registration;
+- disables NSSF;
+- disables PCF;
+- disables advanced-feature paths that require external UDM/NRF interactions;
+- reads Ki/OPc/SQN directly from MySQL.
+
+Pinned source evidence:
+
+```
+auth_vectors_generator()
+    if simple_scenario:
+        authentication_vectors_generator_in_udm()
+        authentication_vectors_generator_in_ausf()
+        derive_kamf()
+```
+
+and the local UDM path calls:
+
+```
+connect_to_mysql()
+get_mysql_auth_info()
+generate_5g_he_av_in_udm(... nc->serving_network ...)
+mysql_push_rand_sqn()
+mysql_increment_sqn()
+```
+
+Therefore the **authentication-only** experiment requires:
+
+```
+nrUE
+gNB
+AMF
+MySQL
+```
+
+It does not require these external services for the auth/KDF gate:
+
+```
+AUSF
+UDM
+UDR
+NRF
+PCF
+NSSF
+SMF
+UPF
+```
+
+SMF/UPF become relevant when progressing beyond authentication toward PDU
+session/data-plane validation. Full registration may also require additional
+core interactions depending on the exact procedure reached.
+
+Configuration gate:
+
+```bash
+python3 tools/oai_amf_snpn/check_auth_only_config.py   /tmp/harp-snpn-rfsim/amf.harp-snpn-positive.yaml
+```
+
+Expected:
+
+```
+PASS_HARP_AMF_AUTH_ONLY_CONFIG
+```
+
+The fixture generator now runs this check for both positive and negative AMF
+YAML files automatically.
+
+Synthetic self-test:
+
+```bash
+bash tools/oai_amf_snpn/run_auth_only_config_selftest.sh
+```
+
+Expected:
+
+```
+PASS_AMF_AUTH_ONLY_CONFIG_SELFTEST
+```
+
+This separation is intentional:
+
+```
+Gate 1: SNPN selection + authentication/KDF
+        -> minimal stack
+
+Gate 2: complete registration
+        -> add only what that procedure requires
+
+Gate 3: PDU session + Internet data plane
+        -> SMF/UPF and remaining data-plane dependencies
+```
+
+This minimizes infrastructure cost for the first proof.
