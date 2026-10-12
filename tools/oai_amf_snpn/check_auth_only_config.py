@@ -28,7 +28,7 @@ def main() -> None:
     text = path.read_text()
 
     simple = exactly_one(
-        r"^\s{4}enable_simple_scenario:\s*(yes|no)\s*(?:#.*)?$",
+        r"^[ ]{4}enable_simple_scenario:[ \t]*(yes|no)[ \t]*(?:#.*)?$",
         text,
         "enable_simple_scenario",
     ).group(1)
@@ -54,7 +54,7 @@ def main() -> None:
     }
     for key, expected in required.items():
         m = exactly_one(
-            rf"^\s{{2}}{re.escape(key)}:\s*([^\s#]+)",
+            rf"^[ ]{{2}}{re.escape(key)}:[ \t]*([^\s#]+)",
             db,
             f"database.{key}",
         )
@@ -63,7 +63,25 @@ def main() -> None:
             fail(f"database.{key}={actual!r}, expected {expected!r}")
 
     exactly_one(
-        r'^\s{2}snpn_nid:\s*"[0-9A-Fa-f]{11}"\s*$',
+        r'^[ ]{2}snpn_nid:[ \t]*"[0-9A-Fa-f]{11}"[ \t]*,
+        text,
+        "amf.snpn_nid",
+    )
+
+    print("AUTH_ONLY_EXTERNAL_AUSF=0")
+    print("AUTH_ONLY_EXTERNAL_UDM=0")
+    print("AUTH_ONLY_EXTERNAL_UDR=0")
+    print("AUTH_ONLY_EXTERNAL_NRF=0")
+    print("AUTH_ONLY_EXTERNAL_PCF=0")
+    print("AUTH_ONLY_EXTERNAL_NSSF=0")
+    print("AUTH_ONLY_MYSQL=1")
+    print("AUTH_ONLY_SMF_REQUIRED_FOR_AUTH=0")
+    print("PASS_HARP_AMF_AUTH_ONLY_CONFIG")
+
+
+if __name__ == "__main__":
+    main()
+,
         text,
         "amf.snpn_nid",
     )
