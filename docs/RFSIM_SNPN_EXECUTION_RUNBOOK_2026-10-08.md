@@ -1095,3 +1095,69 @@ Gate 3: PDU session + Internet data plane
 ```
 
 This minimizes infrastructure cost for the first proof.
+
+
+## 12. Local single-case runner
+
+A local orchestration helper is available for the actual RFsim authentication
+experiment:
+
+```bash
+bash tools/oai_snpn/run_rfsim_auth_case.sh \
+  positive \
+  /path/to/oai-build \
+  /path/to/amf-binary \
+  /tmp/harp-snpn-rfsim
+```
+
+Then reset and run the negative case with the same RAN build, subscriber
+fixture and topology:
+
+```bash
+bash tools/oai_snpn/run_rfsim_auth_case.sh \
+  negative \
+  /path/to/oai-build \
+  /path/to/amf-binary \
+  /tmp/harp-snpn-rfsim
+```
+
+The runner:
+
+- invokes the runtime-artifact gate;
+- invokes the live MySQL/N2/topology preflight;
+- resets the subscriber fixture before each case;
+- starts AMF, gNB and nrUE locally;
+- writes separate AMF/gNB/nrUE logs;
+- stops background processes after the UE runtime window;
+- invokes the existing positive or negative RFsim log checker.
+
+Default process window:
+
+```
+HARP_RFSIM_TIMEOUT=45
+```
+
+Optional log directory:
+
+```
+HARP_LOG_DIR=/tmp
+```
+
+For a command-plan inspection without starting MySQL/RFsim processes:
+
+```bash
+HARP_DRY_RUN=1 bash tools/oai_snpn/run_rfsim_auth_case.sh \
+  positive /path/to/oai-build /path/to/amf-binary /tmp/harp-snpn-rfsim
+```
+
+Dry-run output is not experimental evidence. The only real case marker is:
+
+```
+PASS_HARP_RFSIM_AUTH_CASE mode=positive
+PASS_HARP_RFSIM_AUTH_CASE mode=negative
+```
+
+and it is emitted only after the existing log checker accepts the captured
+runtime logs.
+
+No GitHub Actions are involved.
