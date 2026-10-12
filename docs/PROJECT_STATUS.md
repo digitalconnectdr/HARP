@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-11
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `fa0dfa37527ea487d8cfc7d53f14d16e7cb1ff66`
+**Baseline commit reviewed through:** `f7be83790394627e70a83fcb861f65d146eba5fc`
 
 ## 0. Consolidated current status — 2026-10-09
 
@@ -3270,5 +3270,124 @@ PASS_HARP_RFSIM_AUTH_LAB_PREFLIGHT
 
 and is still PENDING actual lab execution.
 
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 45. Minimal auth/KDF stack established — 2026-10-12
+
+The pinned AMF simple-scenario path was audited to determine the minimum
+infrastructure required for the first SNPN/KDF proof.
+
+With:
+
+```
+enable_simple_scenario: yes
+```
+
+the pinned AMF code:
+
+```
+auth_vectors_generator()
+  -> authentication_vectors_generator_in_udm()
+  -> authentication_vectors_generator_in_ausf()
+  -> derive_kamf()
+```
+
+runs locally inside AMF.
+
+The local UDM/authentication path reads subscriber material from MySQL and
+passes `nc->serving_network` directly into
+`generate_5g_he_av_in_udm()`.
+
+The same simple-scenario super-option forces external-feature paths off,
+including NF registration, NSSF, PCF and advanced-feature UDM/NRF paths.
+
+Therefore the first authentication/KDF experiment can use the minimal runtime
+stack:
+
+```
+nrUE
+gNB
+AMF
+MySQL
+```
+
+External services not required for the authentication/KDF gate:
+
+```
+AUSF
+UDM
+UDR
+NRF
+PCF
+NSSF
+SMF
+UPF
+```
+
+SMF/UPF are deferred until PDU-session/data-plane testing.
+
+A static auth-only configuration gate was added:
+
+```
+tools/oai_amf_snpn/check_auth_only_config.py
+```
+
+commits:
+
+```
+9da4309ee19ac7590a180531f1d7def915aee456
+4e424bba9dd69d760b13bdbf00b9e6f1dbd893d9
+```
+
+It verifies:
+
+```
+enable_simple_scenario=yes
+database host=mysql
+database user=test
+database type=mysql
+database password=test
+database_name=oai_db
+valid 11-hex-digit AMF snpn_nid
+```
+
+The RFsim fixture generator now invokes this gate for both positive and negative
+AMF YAML files:
+
+```
+1474e10ea0fdf28812971758b51811d489fc8944
+```
+
+Synthetic config self-test:
+
+```
+tools/oai_amf_snpn/run_auth_only_config_selftest.sh
+```
+
+commit:
+
+```
+ae486d83a8f9c89407e449bb38e55b3d4f1ec6b2
+```
+
+It was integrated into the aggregate standalone suite:
+
+```
+bd1f589d25dd636db23464f4fcef5c81c92fe4dd
+```
+
+Runbook update:
+
+```
+f7be83790394627e70a83fcb861f65d146eba5fc
+```
+
+This materially reduces the infrastructure needed for the first proof and keeps
+the experiment focused on SNPN selection/authentication before adding a data
+plane.
+
+No real RFsim auth PASS is claimed yet.
 No GitHub Actions were used.
 No phone installation is required yet.
