@@ -49,10 +49,19 @@ RAN:
 bash tools/oai_snpn/run_pre_rfsim_gates.sh /path/to/openairinterface5g
 ```
 
-Required final marker:
+Required final markers:
 
 ```
+PASS_HARP_OAI_RFSIM_BINARIES
 PASS_HARP_OAI_SNPN_PRE_RFSIM_GATES
+```
+
+The RAN gate now also verifies these exact runtime artifacts:
+
+```
+<build-dir>/nr-softmodem
+<build-dir>/nr-uesoftmodem
+<build-dir>/librfsimulator.so
 ```
 
 AMF:
