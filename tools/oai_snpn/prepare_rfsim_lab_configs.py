@@ -156,6 +156,16 @@ def main() -> None:
     checker = root / "tools/oai_snpn/check_rfsim_fixture_pair.py"
     subprocess.run(["python3", str(checker), str(out)], check=True)
 
+    auth_only_checker = root / "tools/oai_amf_snpn/check_auth_only_config.py"
+    subprocess.run(
+        ["python3", str(auth_only_checker), str(out / "amf.harp-snpn-positive.yaml")],
+        check=True,
+    )
+    subprocess.run(
+        ["python3", str(auth_only_checker), str(out / "amf.harp-snpn-negative.yaml")],
+        check=True,
+    )
+
     print("PASS_HARP_RFSIM_FIXTURE_GENERATION")
 
 
