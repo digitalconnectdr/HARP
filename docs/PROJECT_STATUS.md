@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-11
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `f7be83790394627e70a83fcb861f65d146eba5fc`
+**Baseline commit reviewed through:** `c378b8c66740558cbeba2c401e3f7484bf7c9e35`
 
 ## 0. Consolidated current status — 2026-10-09
 
@@ -3389,5 +3389,94 @@ the experiment focused on SNPN selection/authentication before adding a data
 plane.
 
 No real RFsim auth PASS is claimed yet.
+No GitHub Actions were used.
+No phone installation is required yet.
+
+
+## 46. RFsim runtime binary + auth-only artifact gates — 2026-10-12
+
+A gap was identified between focused pre-RFsim unit tests and actual RFsim
+execution: the previous OAI runner did not build the softmodem executables.
+
+The OAI pre-RFsim runner now builds and verifies:
+
+```
+nr-softmodem
+nr-uesoftmodem
+librfsimulator.so
+```
+
+after the focused CTest gates.
+
+Commit:
+
+```
+4014d98ea2dfca947ce98b953870279d9cbfbd84
+```
+
+New marker:
+
+```
+PASS_HARP_OAI_RFSIM_BINARIES
+```
+
+The existing final marker:
+
+```
+PASS_HARP_OAI_SNPN_PRE_RFSIM_GATES
+```
+
+now follows successful unit tests **and** successful RFsim runtime-artifact
+build/verification.
+
+Runbook synchronization:
+
+```
+78b1df13faabe07731d4b7789184f7a79751d04c
+```
+
+A separate runtime-artifact preflight was added:
+
+```
+tools/oai_snpn/check_auth_only_runtime_artifacts.sh
+```
+
+commit:
+
+```
+fd37ba1c9d4f93eae53b7bb6f0fd45e60cda1752
+```
+
+It verifies:
+
+```
+RAN gNB executable
+RAN nrUE executable
+RFsim module
+AMF executable
+five RFsim fixtures
+single-variable fixture invariant
+positive auth-only config
+negative auth-only config
+```
+
+Expected marker:
+
+```
+PASS_HARP_AUTH_ONLY_RUNTIME_ARTIFACTS
+```
+
+Runbook integration:
+
+```
+c378b8c66740558cbeba2c401e3f7484bf7c9e35
+```
+
+This still precedes live MySQL/N2/RFsim connectivity and therefore is an
+artifact/preflight gate, not runtime authentication evidence.
+
+No real OAI compile PASS is claimed yet.
+No real AMF compile PASS is claimed yet.
+No RFsim authentication PASS is claimed yet.
 No GitHub Actions were used.
 No phone installation is required yet.
