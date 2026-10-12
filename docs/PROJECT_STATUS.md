@@ -3480,3 +3480,68 @@ No real AMF compile PASS is claimed yet.
 No RFsim authentication PASS is claimed yet.
 No GitHub Actions were used.
 No phone installation is required yet.
+
+
+## 47. Local RFsim auth-case orchestration — 2026-10-12
+
+A local, non-GitHub-Actions runner was added for the first live auth/KDF
+experiment:
+
+```
+tools/oai_snpn/run_rfsim_auth_case.sh
+```
+
+Commit:
+
+```
+395195097ab1e3585c94a19b62165a78ac697ee9
+```
+
+It executes one `positive` or `negative` case at a time and preserves the
+single-variable experiment by resetting the subscriber fixture before each
+case. It composes the existing gates rather than replacing them:
+
+```
+runtime artifact preflight
+        ->
+live MySQL/N2/topology preflight
+        ->
+subscriber reset
+        ->
+AMF + gNB + nrUE
+        ->
+captured logs
+        ->
+existing RFsim log checker
+```
+
+Real accepted-case marker:
+
+```
+PASS_HARP_RFSIM_AUTH_CASE mode=<positive|negative>
+```
+
+A dry-run mode exists only to inspect the local execution plan and does not
+count as RFsim evidence:
+
+```
+HARP_DRY_RUN=1
+PASS_HARP_RFSIM_AUTH_CASE_DRY_RUN
+```
+
+The RFsim execution runbook was synchronized in:
+
+```
+9cbc008b2337ee3560534321d45e1306f6c293b1
+```
+
+The script was syntax-checked before being committed, but no real OAI/AMF
+runtime was executed in this environment.
+
+Therefore the next proof remains unchanged: run the positive and negative cases
+on a host/container lab with the pinned OAI artifacts and preserve the six
+runtime logs.
+
+No RFsim authentication PASS is claimed yet.
+No GitHub Actions were used.
+No phone installation is required yet.
