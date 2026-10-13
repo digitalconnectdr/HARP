@@ -1161,3 +1161,178 @@ and it is emitted only after the existing log checker accepts the captured
 runtime logs.
 
 No GitHub Actions are involved.
+
+
+## 21. Early-failure handling and evidence preservation
+
+The single-case runner now treats RFsim execution as an evidence-producing
+experiment rather than a fixed sleep followed by log inspection.
+
+After AMF and gNB start, the runner waits a short startup grace:
+
+```bash
+HARP_STARTUP_GRACE=2
+```
+
+If AMF, gNB or nrUE exits before the mode-specific authentication evidence is
+present, the run fails immediately and prints the tail of the corresponding
+log. This avoids waiting the entire RFsim window for a process that already
+died.
+
+The main runtime window begins after nrUE start:
+
+```bash
+HARP_RFSIM_TIMEOUT=45
+```
+
+The runner polls for the minimum evidence needed before invoking the strict log
+checker.
+
+Positive readiness:
+
+```
+PASS_V5G_SNPN_SELECT
+HARP_SNPN_AUTH_RESPONSE_UE
+HARP_SNPN_AMF_SNN
+PASS_V5G_SNPN_AUTH_AMF
+```
+
+Negative readiness:
+
+```
+PASS_V5G_SNPN_SELECT
+HARP_SNPN_AUTH_RESPONSE_UE
+HARP_SNPN_AMF_SNN
+HARP_SNPN_AUTH_REJECT_AMF
+```
+
+These polling markers do **not** replace the existing log checker. They only
+decide when enough runtime material exists to stop the processes and run the
+full causal/session validation.
+
+Every real case receives a unique local evidence directory:
+
+```
+/tmp/harp-rfsim-positive-<run-id>/
+/tmp/harp-rfsim-negative-<run-id>/
+```
+
+Each directory contains:
+
+```
+harp-amf-<mode>.log
+harp-gnb-<mode>.log
+harp-ue-<mode>.log
+evidence-manifest.txt
+checksums.sha256
+configs/
+```
+
+The evidence manifest records mode, timestamps, result, failure reason,
+runtime paths, topology mode and the HARP commit when available. SHA-256
+checksums cover the runtime binaries, logs and the original experiment
+fixtures.
+
+Sensitive fixture handling is deliberate:
+
+- the subscriber SQL is **not copied** into the evidence directory;
+- its SHA-256 is recorded instead;
+- the copied AMF YAML has the database password redacted;
+- gNB/nrUE configs may be copied because they are needed for RFsim reproduction.
+
+The runner always prints:
+
+```
+HARP_RFSIM_EVIDENCE_DIR=<path>
+```
+
+for a real run, including failed runs, so diagnostics are not lost.
+
+Synthetic dry-run coverage is provided by:
+
+```bash
+bash tools/oai_snpn/run_rfsim_auth_case_selftest.sh
+```
+
+Expected:
+
+```
+PASS_HARP_RFSIM_AUTH_CASE_RUNNER_SELFTEST
+```
+
+This is orchestration coverage only and is not RFsim authentication evidence.
+
+
+## 22. Paired positive/negative RFsim runner
+
+To reduce operator error in the single-variable experiment, the preferred
+entry point is now:
+
+```bash
+bash tools/oai_snpn/run_rfsim_auth_pair.sh \
+  /path/to/oai-build \
+  /path/to/amf-binary \
+  /tmp/harp-snpn-rfsim
+```
+
+The pair runner first executes the existing fixture-pair invariant checker and
+then launches two completely separate single-case runs:
+
+```
+positive
+  -> fresh AMF/gNB/nrUE processes
+  -> subscriber reset
+  -> strict positive checker
+  -> evidence directory
+
+negative
+  -> fresh AMF/gNB/nrUE processes
+  -> subscriber reset
+  -> strict negative checker
+  -> evidence directory
+```
+
+Because each case uses the single-case runner, process state, SQN and
+deterministic-RAND state are reset as required by the experiment.
+
+The pair runner refuses to emit its final marker unless both case manifests say:
+
+```
+RESULT=PASS
+```
+
+It then creates:
+
+```
+/tmp/harp-rfsim-pair-<pair-id>/
+  pair-manifest.txt
+  fixture-checksums.sha256
+```
+
+and emits:
+
+```
+PASS_HARP_RFSIM_AUTH_PAIR pair_id=<pair-id>
+```
+
+A dry-run pair marker is separate:
+
+```
+PASS_HARP_RFSIM_AUTH_PAIR_DRY_RUN
+```
+
+and is not experimental evidence.
+
+The pair-runner structural self-test is:
+
+```bash
+bash tools/oai_snpn/run_rfsim_auth_pair_selftest.sh
+```
+
+Expected:
+
+```
+PASS_HARP_RFSIM_AUTH_PAIR_RUNNER_SELFTEST
+```
+
+No GitHub Actions are required for either runner.
