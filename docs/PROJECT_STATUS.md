@@ -3545,3 +3545,70 @@ runtime logs.
 No RFsim authentication PASS is claimed yet.
 No GitHub Actions were used.
 No phone installation is required yet.
+
+
+## 48. Hardened paired RFsim execution — 2026-10-12
+
+The local RFsim execution path now has early process-exit detection, unique
+per-run evidence directories, manifests, SHA-256 fingerprints and sanitized
+configuration snapshots.
+
+Implementation commits:
+
+```
+fc104ebbb2bc8d2b2fa4a3214b27b011d9678484
+8c599ccdc538f6f592160a2e31169aa0bdc7226e
+38bd33f9801c635ce8030a3aa10da482554a0303
+86ed86f34cfe1cd523e182363c924d3249e4a801
+```
+
+A paired orchestrator is now available:
+
+```
+tools/oai_snpn/run_rfsim_auth_pair.sh
+```
+
+Pair-runner commits:
+
+```
+95ddd4f623eb744c99751e778a4e8cee326c1bbd
+d48a59b50d1f87cd1662618f41873697c694dc15
+ff38df6f01904e546568d8d67f79d020913eef84
+```
+
+The preferred experiment flow is now:
+
+```
+fixture invariant check
+        ->
+positive case with fresh processes
+        ->
+positive strict log check
+        ->
+negative NID-mismatch case with fresh processes
+        ->
+negative strict log check
+        ->
+paired evidence manifest
+```
+
+The final real paired marker is:
+
+```
+PASS_HARP_RFSIM_AUTH_PAIR pair_id=<pair-id>
+```
+
+The execution runbook was synchronized in:
+
+```
+776c96210cbead6291b301a82b4f724b8fba0493
+```
+
+The remaining gate is live execution with the pinned OAI RAN/AMF builds and the
+target MySQL/N2 topology.
+
+No real OAI compile PASS is claimed yet.
+No real AMF compile PASS is claimed yet.
+No RFsim authentication PASS is claimed yet.
+No GitHub Actions were used.
+No phone installation is required yet.
