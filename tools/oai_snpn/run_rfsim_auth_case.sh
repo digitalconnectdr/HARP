@@ -6,7 +6,7 @@ usage() {
 usage: run_rfsim_auth_case.sh <positive|negative> <ran-build-dir> <amf-binary> <fixture-dir>
 
 Environment:
-  HARP_RFSIM_TIMEOUT=<seconds>        Maximum runtime window (default: 45)
+  HARP_RFSIM_TIMEOUT=<seconds>        Maximum runtime window after nrUE start (default: 45)
   HARP_STARTUP_GRACE=<seconds>        Early-exit startup grace (default: 2)
   HARP_LOG_DIR=<dir>                  Parent evidence/log directory (default: /tmp)
   HARP_RUN_ID=<id>                    Optional deterministic run identifier
@@ -113,11 +113,45 @@ cleanup() {
     [ -n "$pid" ] || continue
     kill "$pid" 2>/dev/null || true
   done
+  sleep 1
+  for pid in "$UE_PID" "$GNB_PID" "$AMF_PID"; do
+    [ -n "$pid" ] || continue
+    if kill -0 "$pid" 2>/dev/null; then
+      kill -KILL "$pid" 2>/dev/null || true
+    fi
+  done
   for pid in "$UE_PID" "$GNB_PID" "$AMF_PID"; do
     [ -n "$pid" ] || continue
     wait "$pid" 2>/dev/null || true
   done
   set -e
+}
+
+snapshot_configs() {
+  mkdir -p "$CONFIG_DIR"
+  cp "$GNB_CFG" "$UE_CFG" "$CONFIG_DIR/"
+  python3 - "$AMF_CFG" "$CONFIG_DIR/$(basename "$AMF_CFG")" <<'PY'
+from pathlib import Path
+import sys
+
+src = Path(sys.argv[1]).read_text().splitlines()
+out = []
+inside_database = False
+for line in src:
+    if line == "database:":
+        inside_database = True
+        out.append(line)
+        continue
+    if inside_database and line and not line.startswith(" "):
+        inside_database = False
+    if inside_database and line.strip().startswith("password:"):
+        indent = line[: len(line) - len(line.lstrip())]
+        out.append(f'{indent}password: "<redacted>"')
+    else:
+        out.append(line)
+Path(sys.argv[2]).write_text("\n".join(out) + "\n")
+PY
+  echo "Subscriber SQL intentionally not copied; original SHA-256 is recorded instead."     > "$CONFIG_DIR/README.txt"
 }
 
 write_manifest() {
@@ -156,13 +190,7 @@ write_checksums() {
   [ "$DRY_RUN" = "1" ] && return 0
   command -v sha256sum >/dev/null 2>&1 || return 0
   : > "$CHECKSUMS"
-  for f in \
-    "$AMF_BIN" "$GNB_BIN" "$UE_BIN" "$RFSIM_LIB" \
-    "$AMF_LOG" "$GNB_LOG" "$UE_LOG" \
-    "$CONFIG_DIR/$(basename "$AMF_CFG")" \
-    "$CONFIG_DIR/$(basename "$GNB_CFG")" \
-    "$CONFIG_DIR/$(basename "$UE_CFG")" \
-    "$CONFIG_DIR/$(basename "$SUBSCRIBER_SQL")"; do
+  for f in     "$AMF_BIN" "$GNB_BIN" "$UE_BIN" "$RFSIM_LIB"     "$AMF_LOG" "$GNB_LOG" "$UE_LOG"     "$AMF_CFG" "$GNB_CFG" "$UE_CFG" "$SUBSCRIBER_SQL"; do
     [ -f "$f" ] && sha256sum "$f" >> "$CHECKSUMS"
   done
 }
@@ -222,15 +250,13 @@ marker_ready() {
 echo "[HARP] RFsim auth case: $MODE"
 echo "[HARP] evidence directory: $CASE_DIR"
 
-run bash "$ROOT/tools/oai_snpn/check_auth_only_runtime_artifacts.sh" \
-  "$RAN_BUILD" "$AMF_BIN" "$FIXTURES"
+run bash "$ROOT/tools/oai_snpn/check_auth_only_runtime_artifacts.sh"   "$RAN_BUILD" "$AMF_BIN" "$FIXTURES"
 
 if [ "$DRY_RUN" != "1" ]; then
-  mkdir -p "$CONFIG_DIR"
-  cp "$AMF_CFG" "$GNB_CFG" "$UE_CFG" "$SUBSCRIBER_SQL" "$CONFIG_DIR/"
+  mkdir -p "$CASE_DIR"
+  snapshot_configs
 
-  bash "$ROOT/tools/oai_snpn/check_rfsim_auth_lab_ready.sh" \
-    "$FIXTURES" "$AMF_BIN" "$GNB_BIN" "$UE_BIN"
+  bash "$ROOT/tools/oai_snpn/check_rfsim_auth_lab_ready.sh"     "$FIXTURES" "$AMF_BIN" "$GNB_BIN" "$UE_BIN"
 else
   echo "DRY_RUN: lab preflight skipped because it performs live connectivity checks"
 fi
@@ -255,29 +281,15 @@ MYSQL_PWD="$DB_PASS" mysql -h "$DB_HOST" -u "$DB_USER" "$DB_NAME" < "$SUBSCRIBER
 : > "$GNB_LOG"
 : > "$UE_LOG"
 
-timeout "$TIMEOUT_SECS" "$AMF_BIN" -c "$AMF_CFG" -o >"$AMF_LOG" 2>&1 &
+"$AMF_BIN" -c "$AMF_CFG" -o >"$AMF_LOG" 2>&1 &
 AMF_PID=$!
 require_alive_after_grace AMF "$AMF_PID" "$AMF_LOG"
 
-timeout "$TIMEOUT_SECS" sudo "$GNB_BIN" \
-  -O "$GNB_CFG" \
-  --gNBs.[0].min_rxtxtime 6 \
-  --rfsim \
-  --log_config.global_log_options level,nocolor,time \
-  >"$GNB_LOG" 2>&1 &
+sudo "$GNB_BIN"   -O "$GNB_CFG"   --gNBs.[0].min_rxtxtime 6   --rfsim   --log_config.global_log_options level,nocolor,time   >"$GNB_LOG" 2>&1 &
 GNB_PID=$!
 require_alive_after_grace GNB "$GNB_PID" "$GNB_LOG"
 
-timeout "$TIMEOUT_SECS" sudo "$UE_BIN" \
-  -r 106 \
-  --numerology 1 \
-  --band 78 \
-  -C 3619200000 \
-  --rfsim \
-  --rfsimulator.[0].serveraddr 127.0.0.1 \
-  -O "$UE_CFG" \
-  --log_config.global_log_options level,nocolor,time \
-  >"$UE_LOG" 2>&1 &
+sudo "$UE_BIN"   -r 106   --numerology 1   --band 78   -C 3619200000   --rfsim   --rfsimulator.[0].serveraddr 127.0.0.1   -O "$UE_CFG"   --log_config.global_log_options level,nocolor,time   >"$UE_LOG" 2>&1 &
 UE_PID=$!
 
 DEADLINE=$(( $(date +%s) + TIMEOUT_SECS ))
@@ -319,16 +331,9 @@ GNB_PID=""
 UE_PID=""
 
 if [ "$MODE" = "positive" ]; then
-  python3 "$ROOT/tools/oai_snpn/check_rfsim_snpn_logs.py" \
-    --mode positive \
-    --ue-log "$UE_LOG" \
-    --amf-log "$AMF_LOG"
+  python3 "$ROOT/tools/oai_snpn/check_rfsim_snpn_logs.py"     --mode positive     --ue-log "$UE_LOG"     --amf-log "$AMF_LOG"
 else
-  python3 "$ROOT/tools/oai_snpn/check_rfsim_snpn_logs.py" \
-    --mode negative \
-    --ue-log "$UE_LOG" \
-    --amf-log "$AMF_LOG" \
-    --expected-amf-nid "$EXPECTED_AMF_NID"
+  python3 "$ROOT/tools/oai_snpn/check_rfsim_snpn_logs.py"     --mode negative     --ue-log "$UE_LOG"     --amf-log "$AMF_LOG"     --expected-amf-nid "$EXPECTED_AMF_NID"
 fi
 
 RESULT="PASS"
