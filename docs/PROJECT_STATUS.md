@@ -3612,3 +3612,56 @@ No real AMF compile PASS is claimed yet.
 No RFsim authentication PASS is claimed yet.
 No GitHub Actions were used.
 No phone installation is required yet.
+
+
+## 49. End-to-end local RFsim laboratory runner — 2026-10-12
+
+A sequencing issue was found in the previous manual runbook: the fixture
+generator requires clean pinned RAN/AMF worktrees, while the build gates apply
+HARP blueprints and intentionally modify those worktrees. Therefore fixtures
+must be generated before either build gate.
+
+The build-environment preflight now accepts a pinned asn1c executable supplied
+through `HARP_ASN1C_EXEC`:
+
+```
+0886c0f8b2871d87775cee5cf229bf9b35ef486a
+```
+
+A new end-to-end local runner enforces the correct order:
+
+```
+tools/oai_snpn/run_rfsim_auth_lab.sh
+```
+
+Commits:
+
+```
+f553d9b75bc84c4abb962ddcf1d16d4f93511960
+4cb311322147eecdf74ebcd0c3dab0feecd60164
+22e31a697d066990dfe814a5d61d7c02f986f5a7
+```
+
+Its execution chain is:
+
+```
+build environment
+  -> fixture generation from clean pinned sources
+  -> RAN blueprint/build/test
+  -> AMF blueprint/build
+  -> positive/negative RFsim auth pair
+```
+
+The runbook was corrected and synchronized in:
+
+```
+a416db8086a1496528ffff02885932d2280af68b
+```
+
+This is now the preferred route to the first real RFsim KDF proof.
+
+No real OAI compile PASS is claimed yet.
+No real AMF compile PASS is claimed yet.
+No RFsim authentication PASS is claimed yet.
+No GitHub Actions were used.
+No phone installation is required yet.
