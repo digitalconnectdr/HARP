@@ -9,6 +9,12 @@ This runbook is for the first executable SNPN/KDF experiment. It is deliberately
 
 No GitHub Actions are used.
 
+> **Execution-order correction (2026-10-12):** generate the RFsim fixtures from
+> both clean pinned worktrees **before** running either build gate. The build
+> gates apply the HARP blueprints and therefore modify those worktrees. The
+> preferred entry point is now `tools/oai_snpn/run_rfsim_auth_lab.sh`, which
+> enforces this order automatically.
+
 ## 1. Pinned sources
 
 RAN:
@@ -1336,3 +1342,78 @@ PASS_HARP_RFSIM_AUTH_PAIR_RUNNER_SELFTEST
 ```
 
 No GitHub Actions are required for either runner.
+
+
+## 23. End-to-end local RFsim auth lab runner
+
+The complete host-local sequence is now orchestrated by:
+
+```bash
+bash tools/oai_snpn/run_rfsim_auth_lab.sh \
+  /path/to/clean-openairinterface5g \
+  /path/to/clean-oai-cn5g-amf
+```
+
+Both checkouts must be disposable clean worktrees at the pinned commits.
+
+The runner deliberately executes these stages in this exact order:
+
+```
+1. build-environment preflight
+2. generate RFsim fixtures from clean pinned sources
+3. apply HARP RAN blueprints + build/test RAN + RFsim artifacts
+4. apply HARP AMF blueprints + build AMF
+5. execute the positive/negative paired RFsim auth experiment
+```
+
+The order of stages 2-4 is important. The fixture generator verifies that both
+upstream worktrees are clean and pinned. The RAN and AMF build gates then apply
+HARP patches, which intentionally make those disposable worktrees dirty.
+Generating fixtures after the build gates would therefore be rejected.
+
+Optional paths:
+
+```bash
+export HARP_RAN_BUILD_DIR=/path/to/ran-build
+export HARP_AMF_BUILD_DIR=/path/to/amf-build
+export HARP_LOG_DIR=/path/to/evidence
+export HARP_PAIR_ID=my-run-id
+```
+
+A command-plan inspection is available without compiling or starting RFsim:
+
+```bash
+HARP_DRY_RUN=1 bash tools/oai_snpn/run_rfsim_auth_lab.sh \
+  /path/to/ran-checkout \
+  /path/to/amf-checkout
+```
+
+Dry-run marker:
+
+```
+PASS_HARP_RFSIM_AUTH_LAB_DRY_RUN
+```
+
+A real successful end-to-end run emits:
+
+```
+PASS_HARP_RFSIM_AUTH_PAIR pair_id=<pair-id>
+PASS_HARP_RFSIM_AUTH_LAB pair_id=<pair-id>
+```
+
+The structural ordering self-test is:
+
+```bash
+bash tools/oai_snpn/run_rfsim_auth_lab_selftest.sh
+```
+
+Expected:
+
+```
+PASS_HARP_RFSIM_AUTH_LAB_RUNNER_SELFTEST
+```
+
+The build-environment preflight also honors `HARP_ASN1C_EXEC` when a pinned
+asn1c binary is installed outside `PATH`.
+
+No GitHub Actions are used by this path.
