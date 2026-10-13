@@ -2,7 +2,7 @@
 
 **Baseline date:** 2026-10-11
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `c378b8c66740558cbeba2c401e3f7484bf7c9e35`
+**Baseline commit reviewed through:** `942a3584e064702e011bd0bb320585ff1a234c03`
 
 ## 0. Consolidated current status — 2026-10-09
 
