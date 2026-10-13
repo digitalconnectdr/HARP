@@ -31,9 +31,19 @@ for cmd in "${required_cmds[@]}"; do
 done
 
 echo
-if command -v asn1c >/dev/null 2>&1; then
-  echo "FOUND   asn1c       $(command -v asn1c)"
-  asn1c -h 2>&1 | head -n 2 || true
+ASN1C_EXEC="${HARP_ASN1C_EXEC:-}"
+if [ -n "$ASN1C_EXEC" ]; then
+  if [ -x "$ASN1C_EXEC" ]; then
+    echo "FOUND   asn1c       $ASN1C_EXEC (HARP_ASN1C_EXEC)"
+    "$ASN1C_EXEC" -h 2>&1 | head -n 2 || true
+  else
+    echo "MISSING asn1c       HARP_ASN1C_EXEC is not executable: $ASN1C_EXEC"
+    missing=1
+  fi
+elif command -v asn1c >/dev/null 2>&1; then
+  ASN1C_EXEC="$(command -v asn1c)"
+  echo "FOUND   asn1c       $ASN1C_EXEC"
+  "$ASN1C_EXEC" -h 2>&1 | head -n 2 || true
 else
   echo "MISSING asn1c"
   missing=1
