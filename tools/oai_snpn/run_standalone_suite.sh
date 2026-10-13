@@ -14,5 +14,6 @@ bash "$ROOT/tools/oai_snpn/run_rfsim_fixture_checker_selftest.sh"
 bash "$ROOT/tools/oai_snpn/run_rfsim_log_checker_selftest.sh"
 bash "$ROOT/tools/oai_amf_snpn/run_auth_only_config_selftest.sh"
 bash "$ROOT/tools/oai_snpn/run_rfsim_auth_case_selftest.sh"
+bash "$ROOT/tools/oai_snpn/run_rfsim_auth_pair_selftest.sh"
 
 echo "PASS_HARP_SNPN_STANDALONE_SUITE"
