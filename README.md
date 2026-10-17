@@ -29,6 +29,16 @@ PASS_STAGE2_RELAY_READY
 
 Este gate todavía **no** crea Internet transparente para Chrome u otras apps. Eso corresponde al siguiente paso con `VpnService + HEV tun2socks + ProtectedAwareBridge`.
 
+## HARP W3 — Passpoint / OpenRoaming (línea de investigación)
+
+HARP también estudia una alternativa de **acceso IP directo desde A**, sin eSIM/plan móvil en A y sin requerir que un teléfono B ejecute HARP: autenticación a puntos de acceso Wi-Fi autorizados mediante Passpoint, extensible a federación WBA OpenRoaming si existen acuerdos y cobertura.
+
+- [Investigación y gates W3](docs/RESEARCH_WIFI_PASSPOINT_OPENROAMING_2026-10-17.md).
+- [Modelo local paramétrico de costos y capacidad](tools/access_feasibility.py) (sin tarifas asumidas):
+  `python3 tools/access_feasibility.py --self-test`.
+
+**Estado:** investigación y código de planificación; no prueba física, cobertura ni modelo comercial verificados. Los APs requieren backhaul autorizado y financiado. Este track no sustituye el experimento L2 ni la investigación SNPN/ProSe.
+
 ## GitHub Actions
 
 **Desactivado.**
