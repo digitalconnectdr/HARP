@@ -3704,3 +3704,38 @@ bash tools/oai_snpn/run_rfsim_auth_lab.sh /path/to/clean-oai-ran /path/to/clean-
 The second command requires the toolchain, pinned sources and validated topology documented in the runbook. These commands are not claimed to have been executed during this review.
 
 Do not install the APK on phones until a local build artifact exists and is verified. Do not run or enable GitHub Actions.
+
+
+## 51. Access without A's mobile subscription: Passpoint / OpenRoaming W3 — 2026-10-17
+
+The continued research identified a new testable architecture that does not need Phone B to execute HARP:
+
+```text
+Phone A (no SIM/mobile-data uplink)
+  -> Android Passpoint profile / EAP credential
+  -> consenting Wi-Fi access point / network
+  -> authenticated IP + DNS
+  -> authorized, funded backhaul
+  -> Internet
+```
+
+This is **not** universal cellular coverage and it does **not** make Internet free: it moves the trust/identity layer to participating APs and makes backhaul, geographic coverage, policy and costs explicit. Unlike RFsim or an unwilling stock-phone relay, the Android-facing APIs are publicly documented on Android 11+.
+
+New artifacts committed:
+
+- [W3 research and validation plan](RESEARCH_WIFI_PASSPOINT_OPENROAMING_2026-10-17.md) — AOSP Passpoint, Android network suggestions, WBA OpenRoaming IDP/ANP/federation, open-source WBA connector/portal, 6 proposed gates, security and deployment caveats.
+- [Local parameterized cost and capacity model](../tools/access_feasibility.py) — monthly demand, planning peak (assumption, not measurement), amortization, energy/backhaul/operations, scenario unit cost. `--self-test` is included in source; **no executed-test PASS is claimed** by this repository-only review.
+- [README project track index](../README.md).
+
+Published source anchors: `source.android.com/docs/core/connect/wifi-passpoint`, `developer.android.com/develop/connectivity/wifi/wifi-suggest`, `wballiance.com/openroaming/how-it-works/`, and IETF Internet-Draft `draft-tomas-openroaming-08` (June 2026; **not yet an RFC**).
+
+**Do not confuse** private Passpoint lab with WBA federation membership. WBA directory lists some free identity profiles, but it does **not** prove an OpenRoaming AP or coverage in the user's area. Confirm local coverage first. Do not buy hardware or install anything yet.
+
+Project priorities now explicitly separate:
+
+1. Android L2 local APK build and future Stage-0/1/2 then VPN physical test (same existing gates; not yet PASS).
+2. OAI/AMF RFsim paired SNPN NID positive/negative run on a provisioned Linux host (still not PASS).
+3. W3 low-cost direct-access PoC: Android A + a **voluntary authorized** Passpoint AP/AAA + backhaul; then test optional OpenRoaming federation with valid partnership.
+4. Continue long-horizon ProSe PC5/UE-to-Network research, but no assumption of forwarding by unknown stock phones.
+
+No GitHub Actions were created or enabled. No APK, RFsim or on-device connectivity execution occurred in this research cycle.
