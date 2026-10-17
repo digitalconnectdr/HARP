@@ -1,8 +1,19 @@
 # HARP — Project Status
 
-**Baseline date:** 2026-10-11
+**Baseline date:** 2026-10-17
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `942a3584e064702e011bd0bb320585ff1a234c03`
+**Baseline commit reviewed through:** `0c5decfcdf23b25f770886bd52edf22a2c83ddc6`
+
+## Latest checkpoint — 2026-10-17
+
+- Latest inspected repository code baseline: `b54ee7718e45d58e2f9ab5ada36e37e95f182719` (2026-10-12/13); this was a documentation-only commit.
+- New research evidence/decision record: [RESEARCH_PROSE_SNPN_RELAY_REALITY_2026-10-17.md](RESEARCH_PROSE_SNPN_RELAY_REALITY_2026-10-17.md).
+- Verified documentary result: 3GPP Rel-19 contains approved ProSe multi-hop/SNPN adaptations, but the SNPN configuration and subscribed-UE requirements do **not** authorize unknown stock phones as arbitrary relays.
+- Source prepared for Android Stage-0/1/2 and Stage-2A, **not** verified on actual devices. No built/verified debug APK in this review.
+- Local RFsim runner prepared, **not** a real RAN build, AMF build or positive/negative authentication PASS. Structural tests and dry-runs cannot be counted as runtime evidence.
+- Next external gates: **local APK build + two-phone test** and **pinned RAN/AMF RFsim auth pair in suitable Linux environment**.
+- Final-product blockers: compatibility and authorization of B, legitimate upstream Internet/backhaul, cost and regulatory feasibility.
+- **No phone installation yet; no GitHub Actions.**
 
 ## 0. Consolidated current status — 2026-10-09
 
@@ -3665,3 +3676,31 @@ No real AMF compile PASS is claimed yet.
 No RFsim authentication PASS is claimed yet.
 No GitHub Actions were used.
 No phone installation is required yet.
+
+
+## 50. Research and project checkpoint — 2026-10-17
+
+A new documentary research decision record was added:
+
+- `docs/RESEARCH_PROSE_SNPN_RELAY_REALITY_2026-10-17.md`
+
+Highlights:
+
+1. Approved TS 23.304 and TS 24.554 Release-19 changes strengthen the managed ProSe/SNPN multi-hop research branch.
+2. In the multi-hop SNPN scenario the standards work still assumes appropriately subscribed/authorized participating UEs. This **does not** solve the unknown/unprepared B requirement.
+3. OAI's roadmap mentions PSSCH/PSCCH work but does not constitute PC5 IP/U2N runtime evidence. The current RFsim path proves only what is actually run and logged.
+4. Third-party terrestrial BLE gateways (e.g. Hubble's 13-byte application advertising payload) are telemetry candidates, not demonstrated general Internet access or bidirectional stock-phone tunneling.
+5. The private-5G route still needs radio infrastructure, backhaul and appropriate spectrum authorization; commercial alternatives should quantify whose connectivity is being consumed.
+
+Status remains **READY for local lab execution**, **NOT PASS for real 5G RFsim registration or any two-phone demonstration**.
+
+Preferred next commands remain:
+
+~~~bash
+bash tools/oai_snpn/run_standalone_suite.sh
+bash tools/oai_snpn/run_rfsim_auth_lab.sh /path/to/clean-oai-ran /path/to/clean-oai-amf
+~~~
+
+The second command requires the toolchain, pinned sources and validated topology documented in the runbook. These commands are not claimed to have been executed during this review.
+
+Do not install the APK on phones until a local build artifact exists and is verified. Do not run or enable GitHub Actions.
