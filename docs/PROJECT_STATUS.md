@@ -1,6 +1,6 @@
 # HARP — Project Status
 
-**Baseline date:** 2026-10-17
+**Baseline date:** 2026-10-23
 **Repository:** `digitalconnectdr/HARP`  
 **Baseline commit reviewed through:** `0c5decfcdf23b25f770886bd52edf22a2c83ddc6`
 
@@ -3739,3 +3739,32 @@ Project priorities now explicitly separate:
 4. Continue long-horizon ProSe PC5/UE-to-Network research, but no assumption of forwarding by unknown stock phones.
 
 No GitHub Actions were created or enabled. No APK, RFsim or on-device connectivity execution occurred in this research cycle.
+
+
+## 52. W4-W7 research consolidation and Santiago legal-market gate — 2026-10-23
+
+This checkpoint adds **documentary feasibility**, not executed HARP network connectivity. New and recent records:
+
+- [W4 Community Mesh](W4_COMMUNITY_MESH_EDGE_PASSPOINT_2026-10-20.md) — see whether the file is present before relying on it; the prior W4 full report may still exist only as a local artifact. An 802.11s router mesh is not a stock-phone relay.
+- [W5 Stock Hotspot](W5_STOCK_HOTSPOT_FEASIBILITY_2026-10-21.md) — approved/consenting B can share native Wi-Fi; unknown/unprepared B cannot be assumed to forward HARP traffic.
+- [W6 Existing Public Wi-Fi](W6_EXISTING_PUBLIC_WIFI_REUSE_AND_SPONSORSHIP_2026-10-22.md) — 1,080/1,130 historical national hotspot counts are not current availability.
+- **[W7 Santiago partner and public Wi-Fi evidence](W7_SANTIAGO_AUTHORIZED_ACCESS_PARTNER_GATE_2026-10-23.md)** — newly located 2024-2025 INDOTEL decisions identify six documented Santiago-area Internet provider/reseller leads; **none has agreed to cooperate or been measured**.
+- **[W7 machine-readable evidence ledger](../data/w7_santiago_operator_leads_2026-10-23.csv)** — current authorization, consent, redistribution rights, AP control, Passpoint and live-test fields explicitly marked `unknown`.
+
+### Correction to W6 coverage interpretation
+
+INDOTEL's approved 2025-2026 development plan **proposes 180 Wi-Fi points** (25/60 Mbps dedicated fibre; Wi-Fi 6), and its 2025 POA **targets 70 functioning points** in a rescue/transformation program. Neither number is a 2026 delivered count. The 2024 POA execution report documents **eight localities installed/received at its Q3 checkpoint**, not an authoritative final national inventory. Therefore no claim that the historic 1,130 sites are currently usable.
+
+Primary official documents:
+
+- https://indotel.gob.do/wp-content/uploads/2025/01/res._009_2025_pb_2025_2026_140124_1__signed.pdf
+- https://indotel.gob.do/wp-content/uploads/2025/03/POA-2025.pdf
+- https://indotel.gob.do/wp-content/uploads/2025/01/Macro-POA-2024-INDOTEL-2.pdf
+
+### First Santiago-area commercial/technical go-no-go
+
+Find one **consenting, currently authorized** fixed-access partner and venue; verify permitted public guest access in writing; obtain dated AP/controller and backhaul evidence; then test a Phone A with mobile data off. At eight concurrent 5 Mbps users and 10% assumed overhead, **44.44 Mbps** of backhaul is required: 25 Mbps fails this synthetic gate; 60 Mbps passes only the backhaul arithmetic, not a physical Wi-Fi test.
+
+The priority is a **consent-based, sponsor-funded guest Wi-Fi / private Passpoint access** pilot with a legally authorized operator. This is a viable hypothesis for **covered participating areas only**, not universal operator-free Internet. No outreach, partner contract, hardware purchase, site measurements, Android APK, RFsim auth or physical HARP PASS occurred in this research checkpoint.
+
+**No GitHub Actions were used or enabled. Do not install on phones before local APK build.**
