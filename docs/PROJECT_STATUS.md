@@ -3745,7 +3745,7 @@ No GitHub Actions were created or enabled. No APK, RFsim or on-device connectivi
 
 This checkpoint adds **documentary feasibility**, not executed HARP network connectivity. New and recent records:
 
-- [W4 Community Mesh](W4_COMMUNITY_MESH_EDGE_PASSPOINT_2026-10-20.md) — see whether the file is present before relying on it; the prior W4 full report may still exist only as a local artifact. An 802.11s router mesh is not a stock-phone relay.
+- **W4 Community Mesh (local report, not committed):** `W4_COMMUNITY_MESH_EDGE_PASSPOINT_2026-10-20.md` remains outside GitHub; do not treat this filename as a published link. An 802.11s router mesh is not a stock-phone relay.
 - [W5 Stock Hotspot](W5_STOCK_HOTSPOT_FEASIBILITY_2026-10-21.md) — approved/consenting B can share native Wi-Fi; unknown/unprepared B cannot be assumed to forward HARP traffic.
 - [W6 Existing Public Wi-Fi](W6_EXISTING_PUBLIC_WIFI_REUSE_AND_SPONSORSHIP_2026-10-22.md) — 1,080/1,130 historical national hotspot counts are not current availability.
 - **[W7 Santiago partner and public Wi-Fi evidence](W7_SANTIAGO_AUTHORIZED_ACCESS_PARTNER_GATE_2026-10-23.md)** — newly located 2024-2025 INDOTEL decisions identify six documented Santiago-area Internet provider/reseller leads; **none has agreed to cooperate or been measured**.
