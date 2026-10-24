@@ -1,8 +1,17 @@
 # HARP — Project Status
 
-**Baseline date:** 2026-10-23
+**Baseline date:** 2026-10-24
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `0c5decfcdf23b25f770886bd52edf22a2c83ddc6`
+**Baseline commit reviewed through:** `095d4814c7439ae2e725e29670dca4fc3650b04e`
+
+## Current research checkpoint — 2026-10-24
+
+- **W8 CAPPORT** added as a minimum zero-HARP-app pilot architecture for a **consenting guest Wi-Fi access point**. Android 11+ documents native DHCP option 114 CAPPORT API detection. This is a stock-Android OS login path, not a new radio or Internet provider.
+- [W8 standards, architecture and acceptance gates](W8_CAPPORT_ANDROID_ZERO_INSTALL_PILOT_2026-10-24.md); [offline Python validator](../tools/w8_capport_validate.py); [synthetic captive JSON fixture](../data/w8_capport_captive_fixture_2026-10-24.json).
+- **Important RFC correction:** DHCPv4 option 114 carries the **HTTPS RFC 8908 API URI**, not the HTML login page URL. The JSON response needs `application/captive+json` and boolean `captive`; HARP pilot additionally requires a login URL when captive.
+- Local validator self-test was run outside GitHub and produced `PASS_HARP_W8_CAPPORT_VALIDATOR_SELFTEST`; synthetic fixture validation produced `PASS_HARP_W8_CAPPORT_FIXTURE_STATIC_ONLY`. **These are static tests only; no AP/router/phone/Internet PASS.**
+- Existing W7 six ISP/reseller candidates still have **unknown** consent, active-site coverage, guest access rights and commercial terms.
+- Existing Android L2 physical and OAI/AMF RFsim real authentication gates remain **pending**. No APK installed; no GitHub Actions.
 
 ## Latest checkpoint — 2026-10-17
 
@@ -3768,3 +3777,29 @@ Find one **consenting, currently authorized** fixed-access partner and venue; ve
 The priority is a **consent-based, sponsor-funded guest Wi-Fi / private Passpoint access** pilot with a legally authorized operator. This is a viable hypothesis for **covered participating areas only**, not universal operator-free Internet. No outreach, partner contract, hardware purchase, site measurements, Android APK, RFsim auth or physical HARP PASS occurred in this research checkpoint.
 
 **No GitHub Actions were used or enabled. Do not install on phones before local APK build.**
+
+
+## 53. W8 CAPPORT zero-install Android guest access research — 2026-10-24
+
+The shortest *authorized* route to first practical HARP Internet evidence may be **stock Android + a consenting guest AP + RFC 8908/8910 captive portal**, with **no HARP Android application**, no Passpoint profile, no OpenRoaming federation and no phone B acting as relay.
+
+New artifacts:
+- [W8 research and gate plan](W8_CAPPORT_ANDROID_ZERO_INSTALL_PILOT_2026-10-24.md).
+- [CAPPORT JSON/DHCP URI offline validator](../tools/w8_capport_validate.py).
+- [Synthetic RFC 8908 captive JSON fixture](../data/w8_capport_captive_fixture_2026-10-24.json).
+
+Standards: IETF RFC 8910 DHCPv4 **option 114** carries the **API URL**; IETF RFC 8908 requires HTTPS, `Content-Type: application/captive+json` and boolean `captive`. Android 11 documentation confirms system support for option 114; openNDS documents both CAPPORT identification and legacy portal detection. The actual Samsung firmware behavior and router setup are **not** tested.
+
+**Static test evidence from local runner:** `PASS_HARP_W8_CAPPORT_VALIDATOR_SELFTEST`, `PASS_HARP_W8_CAPPORT_FIXTURE_STATIC_ONLY`. This does not demonstrate router CAPPORT configuration, valid TLS certificates, user login, isolation or Internet.
+
+**Pilot sequence:** (G0) written ISP/venue consent and guest VLAN/firewall isolation -> (G1) compliant HTTPS API/DHCP 114 -> (G2) Android OS login prompt with A mobile data OFF -> (G3) real normal-browser HTTPS and DNS -> (G4) blocked-before-login and guest isolation negative tests -> (G5) measured user-hours/costs.
+
+**No hardware purchase or installation justified by this research.** W8 complements W3 (Passpoint seamless return visits) and W7 (local operator candidates). W4 mesh and 5G ProSe remain separate longer-horizon routes. An unwilling/unknown phone B remains unusable as an assumed Internet relay. eSIM is provisioning, not independent connectivity.
+
+Primary references:
+- https://developer.android.com/about/versions/11/features/captive-portal
+- https://www.rfc-editor.org/rfc/rfc8908.html
+- https://www.rfc-editor.org/rfc/rfc8910.html
+- https://github.com/openNDS/openNDS
+
+**No real phone, AP, LTE/5G, RFsim, or Internet PASS claimed. No GitHub Actions used or enabled.**
