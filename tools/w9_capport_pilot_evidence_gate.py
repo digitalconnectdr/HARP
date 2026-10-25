@@ -7,6 +7,7 @@ result requires independent human review of evidence before any physical PASS.
 import argparse
 import copy
 import hashlib
+import ipaddress
 import json
 import re
 import sys
@@ -25,9 +26,16 @@ def _https_url(value):
         return False
     try:
         url = urlsplit(value)
-        return (url.scheme == "https" and bool(url.hostname)
-                and url.username is None and url.password is None
-                and not url.fragment and url.port in (None, 443))
+        if not url.hostname:
+            return False
+        try:
+            ipaddress.ip_address(url.hostname)
+            return False  # pilot policy: HTTPS API must use DNS hostname
+        except ValueError:
+            pass
+        return (url.scheme == "https" and url.username is None
+                and url.password is None and not url.fragment
+                and url.port in (None, 443))
     except ValueError:
         return False
 
@@ -193,6 +201,10 @@ def self_test():
         assert validate(changed, root)
         changed = copy.deepcopy(doc)
         changed["evidence_type"] = "synthetic"
+        assert validate(changed, root)
+        changed = copy.deepcopy(doc)
+        changed["network"]["client_a_api_url"] = "https://192.0.2.1/api/a"
+        changed["network"]["dhcp114_a_url"] = "https://192.0.2.1/api/a"
         assert validate(changed, root)
     print("PASS_HARP_W9_STATIC_EVIDENCE_VALIDATOR_SELFTEST")
     print("NO_LIVE_CAPPORT_OR_ANDROID_INTERNET_TEST_WAS_PERFORMED")
