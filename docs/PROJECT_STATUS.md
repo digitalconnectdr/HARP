@@ -3803,3 +3803,24 @@ Primary references:
 - https://github.com/openNDS/openNDS
 
 **No real phone, AP, LTE/5G, RFsim, or Internet PASS claimed. No GitHub Actions used or enabled.**
+
+
+## 54. W9 CAPPORT association and two-client evidence gates — 2026-10-25
+
+**New documented limitation:** W8 CAPPORT starts **after** Phone A joins an authorized Wi-Fi SSID. RFC 8908/8910 does not provide automatic Wi-Fi discovery/association, coverage, Internet funding, or an unknown Phone B relay. Android 11's published CAPPORT support specifically identifies DHCPv4 option 114; RFC 8910 also defines DHCPv6 103 and IPv6 RA 37, but Android's RA support on the target firmware must not be assumed.
+
+**New optional onboarding branch:** Android 10+ Wi-Fi Easy Connect (DPP) supports QR-assisted joining in initiator-enrollee mode when device, AP/configurator, firmware and user approval permit it. DPP is not an automatic Internet access service. Keep W8 manual-SSID association as the first experiment; evaluate DPP only after a consenting AP and compatibility evidence exist. Passpoint remains a separate option for subsequent seamless returns.
+
+**New security finding:** RFC 8908 requires CAPPORT API and gateway enforcement to agree on per-client identity. With Android randomized Wi-Fi MACs, do not depend on permanent factory MAC tracking. Pilot requires separate per-client API URIs, `Cache-Control: no-store`, negative tests proving that B remains blocked when A authenticates, guest isolation, and fail-closed expiry.
+
+Artifacts committed:
+- [W9 research / gates](W9_CAPPORT_ASSOCIATION_DPP_SESSION_ISOLATION_2026-10-25.md), commit `bf657baa71e7bc15794274b837b26e1ee6d29777`.
+- [W9 offline two-client evidence preflight](../tools/w9_capport_pilot_evidence_gate.py), commit `83917e1731cddebc1ddfa85c4ae123532f57d2ce`.
+
+The Python tool was executed **locally** with deterministic synthetic artifacts and passed `PASS_HARP_W9_STATIC_EVIDENCE_VALIDATOR_SELFTEST`; its committed Git blob matches the locally tested file (`1ba387528be47d7d0afa9c160ae47be5a8576da1`). It checks manifest consistency and local SHA-256 evidence integrity only. A valid field manifest returns `READY_HARP_W9_EVIDENCE_FOR_MANUAL_REVIEW`, **not** a physical network PASS.
+
+**Priorities:** (1) written site/ISP authorization; (2) authorized manual-join W8 Android test; (3) W9 A/B per-client isolation and expiry test; (4) compare DPP QR vs Passpoint only if hardware/support justified; (5) separate Android L2 APK and OAI/AMF RFsim positive/negative execution gates.
+
+**Still pending:** authorized venue and ISP agreement, real AP, Android association/CAPPORT/HTTPS evidence, measured backhaul/user-hours, APK build/two-phone test, OAI RAN/AMF compile, real RFsim SNPN authentication, PC5 IP and ProSe U2N. Unknown/unprepared stock B still cannot be assumed to relay traffic. eSIM remains credential provisioning rather than free Internet.
+
+**No GitHub Actions, no phone installation, no external network probing and no live HARP connectivity PASS claimed.**
