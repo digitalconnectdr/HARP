@@ -3817,7 +3817,7 @@ Artifacts committed:
 - [W9 research / gates](W9_CAPPORT_ASSOCIATION_DPP_SESSION_ISOLATION_2026-10-25.md), commit `bf657baa71e7bc15794274b837b26e1ee6d29777`.
 - [W9 offline two-client evidence preflight](../tools/w9_capport_pilot_evidence_gate.py), commit `83917e1731cddebc1ddfa85c4ae123532f57d2ce`.
 
-The Python tool was executed **locally** with deterministic synthetic artifacts and passed `PASS_HARP_W9_STATIC_EVIDENCE_VALIDATOR_SELFTEST`; its committed Git blob matches the locally tested file (`1ba387528be47d7d0afa9c160ae47be5a8576da1`). It checks manifest consistency and local SHA-256 evidence integrity only. A valid field manifest returns `READY_HARP_W9_EVIDENCE_FOR_MANUAL_REVIEW`, **not** a physical network PASS.
+The Python tool was executed **locally** with deterministic synthetic artifacts and passed `PASS_HARP_W9_STATIC_EVIDENCE_VALIDATOR_SELFTEST`; its committed Git blob matches the locally tested file (`cd80c0de572bc5839185e7aec7c4b5e081fa5e7f`, hardening commit `a225e2b56d54379c7e10e8e51780541611e48728` rejects HTTPS IP literals). It checks manifest consistency and local SHA-256 evidence integrity only. A valid field manifest returns `READY_HARP_W9_EVIDENCE_FOR_MANUAL_REVIEW`, **not** a physical network PASS.
 
 **Priorities:** (1) written site/ISP authorization; (2) authorized manual-join W8 Android test; (3) W9 A/B per-client isolation and expiry test; (4) compare DPP QR vs Passpoint only if hardware/support justified; (5) separate Android L2 APK and OAI/AMF RFsim positive/negative execution gates.
 
