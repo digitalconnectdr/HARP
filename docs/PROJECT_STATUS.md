@@ -1,8 +1,17 @@
 # HARP — Project Status
 
-**Baseline date:** 2026-10-24
+**Baseline date:** 2026-10-26
 **Repository:** `digitalconnectdr/HARP`  
-**Baseline commit reviewed through:** `095d4814c7439ae2e725e29670dca4fc3650b04e`
+**Baseline commit reviewed through:** `d15cb4c3650008cd182b24fd0786efaa870b252c`
+
+## Current research checkpoint — 2026-10-26 (W10)
+
+- [W10 minimal real Internet / OWE / ProSe decision record](W10_MINIMUM_REAL_INTERNET_OWE_AND_PROSE_GATE_2026-10-26.md) and [machine-readable 10-route matrix](../data/w10_access_options_2026-10-26.csv).
+- **Critical simplification:** CAPPORT is **not** required to prove Internet on an authorized guest Wi-Fi. The first controlled physical proof should use a consenting, isolated WPA2/WPA3 guest SSID and a normal Android browser with cellular data OFF. Only add CAPPORT when the venue needs captive login/session policy.
+- **New security candidate:** Android 10+ documents Wi-Fi Enhanced Open/OWE; it encrypts passwordless public Wi-Fi links without authenticating the AP. An **OWE-only** guest SSID may improve privacy when both AP and actual phone firmware support it. OWE transition mode still permits unencrypted legacy connections. **No S22 Ultra OWE support is assumed or measured.**
+- **New onboarding distinction:** ordinary Samsung Wi-Fi credential QR codes do not require DPP hardware. QR is only a convenience for a network that permits access.
+- **ProSe refreshed:** 3GPP Rel-19 SNPN configuration requires authorized/provisioned participants; TS 31.102 CR 1075 discusses UICC multi-hop files but has *Revised*, not approved, status. No stock-B or PC5 Internet capability has been established.
+- **All physical gates remain untested:** no venue/ISP permission, live AP/OWE/CAPPORT, Android HTTPS, RFsim authentication, PC5 or cooperative two-phone IP PASS. No GitHub Actions or installs.
 
 ## Current research checkpoint — 2026-10-24
 
@@ -3824,3 +3833,20 @@ The Python tool was executed **locally** with deterministic synthetic artifacts 
 **Still pending:** authorized venue and ISP agreement, real AP, Android association/CAPPORT/HTTPS evidence, measured backhaul/user-hours, APK build/two-phone test, OAI RAN/AMF compile, real RFsim SNPN authentication, PC5 IP and ProSe U2N. Unknown/unprepared stock B still cannot be assumed to relay traffic. eSIM remains credential provisioning rather than free Internet.
 
 **No GitHub Actions, no phone installation, no external network probing and no live HARP connectivity PASS claimed.**
+
+
+## 55. W10 minimal real Internet proof, OWE guest security and standards boundary — 2026-10-26
+
+**Decision:** stop making RFC 8908/8910 CAPPORT a prerequisite for the first HARP Internet demonstration. W8/W9 remain optional captive-policy layers. The first authorized proof can use a normal isolated WPA2/WPA3 guest SSID with manually supplied credentials or ordinary Wi-Fi QR; no HARP app or mobile-data plan on A is required, but an authorized, funded ISP upstream **is** required.
+
+**New evidence:** Android/AOSP Wi-Fi Enhanced Open documentation (updated 2026-10-09) supports OWE client mode in Android 10+ when the OEM's chipset, driver, firmware and supplicant implement it. RFC 8110 states that OWE encrypts local Wi-Fi traffic **without authenticating the AP**; rogue-AP attacks remain possible. OpenWrt documents OWE-only and OWE transition; transition permits unencrypted legacy clients. No HARP Galaxy OWE compatibility or actual cipher negotiation has been measured.
+
+**New artifacts:**
+- [W10 research, security choices and physical gates](W10_MINIMUM_REAL_INTERNET_OWE_AND_PROSE_GATE_2026-10-26.md).
+- [W10 ten-route decision matrix](../data/w10_access_options_2026-10-26.csv), every physical route marked NOT_TESTED or NO_VALID_MECHANISM.
+
+**ProSe update:** 3GPP TS 24.554 CR 0792 rev.1 was approved for subscribed SNPN configuration. TS 31.102 CR 1075 discusses UICC configuration for multi-hop ProSe but is only marked Revised. These do not prove retail-phone relay availability. Android satellite/NTN requires OEM modem integration and entitled service, not free arbitrary Internet.
+
+**Next hard gate:** written ISP/venue permission -> guest VLAN/isolation -> stock Android A manual join with mobile data OFF -> actual DNS/HTTPS plus gateway egress -> negative LAN/guest isolation -> measured usable hours and ISP-approved costs. OWE-only and CAPPORT are optional follow-on experiments, not excuses to delay the first field result.
+
+**No physical phone/AP, Internet, ProSe/PC5 or RFsim PASS. No hardware purchase, network scanning, installs or GitHub Actions.**
