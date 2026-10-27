@@ -3850,3 +3850,20 @@ The Python tool was executed **locally** with deterministic synthetic artifacts 
 **Next hard gate:** written ISP/venue permission -> guest VLAN/isolation -> stock Android A manual join with mobile data OFF -> actual DNS/HTTPS plus gateway egress -> negative LAN/guest isolation -> measured usable hours and ISP-approved costs. OWE-only and CAPPORT are optional follow-on experiments, not excuses to delay the first field result.
 
 **No physical phone/AP, Internet, ProSe/PC5 or RFsim PASS. No hardware purchase, network scanning, installs or GitHub Actions.**
+
+
+## 56. W11 native Wi-Fi Aware pairing and L2 security release gate — 2026-10-27
+
+**Read-only source audit, no physical test:** The current L2 `HarpAwareController` embeds the shared lab NDP passphrase `harp-lab-2026`; Stage-2 ephemeral SOCKS credentials are exchanged **after** this NDP is established. Therefore **current L2 is LAB ONLY / PUBLIC NO-GO** until peer identity is authenticated and a hardcoded shared PSK is removed. This is a release/security decision, not a claim that a physical attack was demonstrated.
+
+**New documented option:** Android 14 (API 34) added `Characteristics.isAwarePairingSupported()`, pairing cipher-suite introspection and `DiscoverySession` pairing APIs. These can support a **consent-based, authenticated A↔B** design if **both** OEM implementations actually support pairing and a verified-password/out-of-band peer identity check is used. Empty-password *opportunistic* pairing must not be misrepresented as trusted peer authentication. Android version alone is insufficient. No Samsung S22 Ultra hardware capability has been checked.
+
+**IPv6 correction:** The existing Stage-2A `VpnService.Builder` is IPv4-only and does **not** call `allowFamily(AF_INET6)`; per Android's official API, a missing family is **blocked by default**. Do not claim an IPv6 leak or add `allowFamily(AF_INET6)` as a quick fix. Current Java relay implements SOCKS5 TCP CONNECT, not HEV UDP-over-TCP, QUIC or general dual-stack Internet. Physical negative tests remain pending.
+
+New artifacts:
+- [W11 source audit, API 34 pairing decision and release gates](W11_AWARE_PAIRING_RELEASE_GATE_2026-10-27.md), commit `53901a10bfb8a1d7ec44bb3f71d69a83d977e8dd`.
+- [W11 machine-readable gate ledger](../data/w11_pairing_and_field_gates_2026-10-27.csv), commit `d3ebab6f450ef49bc67dd3fcbd3210eda754b379`; 11 gates, explicit `NOT_TESTED`, `SOURCE_REVIEW_ONLY` or `KNOWN_BLOCKER`.
+
+**Priority order unchanged:** (1) consented venue/ISP and actual W10 P0 Android guest-Wi-Fi DNS/HTTPS/egress; (2) local L2 build and controlled A/B Stage-0/1/2; (3) only if API 34 pairing capabilities are confirmed, implement and negative-test authenticated Aware pairing; (4) real OAI RAN/AMF paired RFsim run. A non-HARP, unknown, nonconsenting B still cannot be assumed to relay. ProSe/SNPN requires provisioned UEs and network, eSIM is credentials, community mesh needs backhaul.
+
+**No GitHub Actions, APK build/install, RFsim, PC5, phone/AP measurements, partner contract or live Internet PASS occurred in W11.**
