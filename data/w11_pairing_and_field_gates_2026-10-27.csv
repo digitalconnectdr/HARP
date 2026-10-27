@@ -1,0 +1,12 @@
+gate,scope,requirement,evidence_type,status,blocking,source
+A34-0,cooperative_L2,"Both devices Android API 34+ and FEATURE_WIFI_AWARE",device_readout,NOT_TESTED,YES,https://developer.android.com/reference/android/net/wifi/aware/Characteristics
+A34-1,cooperative_L2,"Both isAwarePairingSupported true and compatible PASN cipher suite",device_readout,NOT_TESTED,YES,https://developer.android.com/reference/android/net/wifi/aware/Characteristics
+A34-2,cooperative_L2,"Explicit relay consent and verified peer identity; no opportunistic-only trust",field_pairing,NOT_TESTED,YES,https://developer.android.com/reference/android/net/wifi/aware/DiscoverySession
+A34-3,cooperative_L2,"Positive paired NDP and negative wrong-peer credential test",field_pairing,NOT_TESTED,YES,https://developer.android.com/reference/android/net/wifi/aware/DiscoverySession
+A34-4,cooperative_L2,"A data off; HTTPS via B; gateway egress and stage 0/1/2 logs",field_network,NOT_TESTED,YES,https://github.com/digitalconnectdr/HARP/blob/main/docs/PHONE_TEST_RUNBOOK.md
+A34-5,cooperative_L2,"Metered upstream consent; quota; revocation; relay shutdown",policy_and_field,NOT_TESTED,YES,https://github.com/digitalconnectdr/HARP/blob/main/app/src/main/java/org/harp/l2/InternetNetworkSelector.java
+W11-S1,release_gate,"Remove static shared PSK and verify authenticated peer",code_and_negative_test,KNOWN_BLOCKER,YES,https://github.com/digitalconnectdr/HARP/blob/main/app/src/main/java/org/harp/l2/HarpAwareController.java
+W11-S2,ipv4_vpn,"IPv6 blocked by default; no accidental allowFamily IPv6 fall-through",source_review_and_device_negative_test,SOURCE_REVIEW_ONLY,YES,https://developer.android.com/reference/android/net/VpnService.Builder
+W11-S3,ipv4_vpn,"Only TCP 80/443; do not claim UDP/QUIC or dual-stack",source_review,SOURCE_REVIEW_ONLY,YES,https://github.com/digitalconnectdr/HARP/blob/main/app/src/main/java/org/harp/l2/MiniSocks5.java
+P0-0,direct_wifi,"Venue and ISP written authorization; guest isolation",documents,NOT_TESTED,YES,https://github.com/digitalconnectdr/HARP/blob/main/docs/W10_MINIMUM_REAL_INTERNET_OWE_AND_PROSE_GATE_2026-10-26.md
+P0-1,direct_wifi,"A mobile data off; manual Wi-Fi association; DNS HTTPS and egress",field_network,NOT_TESTED,YES,https://github.com/digitalconnectdr/HARP/blob/main/docs/W10_MINIMUM_REAL_INTERNET_OWE_AND_PROSE_GATE_2026-10-26.md
