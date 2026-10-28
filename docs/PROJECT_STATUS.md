@@ -4,7 +4,15 @@
 **Repository:** `digitalconnectdr/HARP`  
 **Baseline commit reviewed through:** `d15cb4c3650008cd182b24fd0786efaa870b252c`
 
-## Current research checkpoint — 2026-10-26 (W10)
+## Current research checkpoint — 2026-10-28 (W12)
+
+- **W12 is a source-level release blocker for paid volunteer relays:** `InternetNetworkSelector.choose()` may select metered cellular or VPN upstream without explicit metered-plan authorization or byte cap. The B — RELAY button opts into the lab role but is not a documented informed data-cost consent. The upstream callback stops on loss of validation, not on metered/roaming transition or budget exhaustion. **No physical billing incident is claimed.**
+- [W12 source audit, Android capability references and falsifiable gates](W12_METERED_RELAY_CONSENT_AND_BACKHAUL_2026-10-28.md) and [offline Python traffic/budget calculator](../tools/w12_relay_backhaul_budget.py). Locally executed synthetic self-test: `PASS_HARP_W12_SYNTHETIC_BACKHAUL_BUDGET_SELFTEST`; published Git blob matches local `26094907c64bfac5c17de1563dae95f7a3b648c4`.
+- **Quantitative correction to W5:** RD$165.12 per volunteer per month was only an illustrative fixed incentive/energy assumption, **not** a demonstrated data-backhaul budget. At 2 Mbps average, 1 active A, 1 hour/day, 30 days and 10% traffic overhead, the model yields 29.7 decimal GB/month. At 5 Mbps, 2 hours/day, it yields 148.5 GB/month. All are hypothetical, not measured. An eight-stream 1,188 GB/month stress scenario is **not** a claim that HARP serves eight A phones.
+- **Public relay NO-GO:** W11 unauthenticated shared lab NDP PSK **and** W12 absent metered/VPN consent/quotas. Do not enable open volunteer relays. Preserve existing lab behavior until separately designed, built and tested changes are approved.
+- **Immediate next proof remains P0:** authorized venue/ISP, isolated guest Wi-Fi, A mobile data OFF, actual DNS+HTTPS and gateway egress. No real phone/AP/5G RFsim/PC5 PASS, partner contract or quote has been obtained. No GitHub Actions, CI or phone installation was used.
+
+## Prior research checkpoint — 2026-10-26 (W10)
 
 - [W10 minimal real Internet / OWE / ProSe decision record](W10_MINIMUM_REAL_INTERNET_OWE_AND_PROSE_GATE_2026-10-26.md) and [machine-readable 10-route matrix](../data/w10_access_options_2026-10-26.csv).
 - **Critical simplification:** CAPPORT is **not** required to prove Internet on an authorized guest Wi-Fi. The first controlled physical proof should use a consenting, isolated WPA2/WPA3 guest SSID and a normal Android browser with cellular data OFF. Only add CAPPORT when the venue needs captive login/session policy.
@@ -3867,3 +3875,16 @@ New artifacts:
 **Priority order unchanged:** (1) consented venue/ISP and actual W10 P0 Android guest-Wi-Fi DNS/HTTPS/egress; (2) local L2 build and controlled A/B Stage-0/1/2; (3) only if API 34 pairing capabilities are confirmed, implement and negative-test authenticated Aware pairing; (4) real OAI RAN/AMF paired RFsim run. A non-HARP, unknown, nonconsenting B still cannot be assumed to relay. ProSe/SNPN requires provisioned UEs and network, eSIM is credentials, community mesh needs backhaul.
 
 **No GitHub Actions, APK build/install, RFsim, PC5, phone/AP measurements, partner contract or live Internet PASS occurred in W11.**
+
+
+## 57. W12 metered-relay consent and upstream traffic economics — 2026-10-28
+
+**New source audit:** [W12 decision record](W12_METERED_RELAY_CONSENT_AND_BACKHAUL_2026-10-28.md) reviews the actual `InternetNetworkSelector`, `MainActivity`, `HarpAwareController` and `Stage2RelayServer`. HARP B can select a validated **metered** cellular upstream and fall back to **VPN** without an explicit upstream-data budget/permission gate; the capability watcher does not revoke on metered/roaming changes or quota exhaustion. The relay button is explicit lab role opt-in, not informed consent to specific mobile data costs. **Source-level risk only**, no observed bill or live exploit.
+
+**Correction:** W5's hypothetical RD$165.12/volunteer-month is not a data-volume budget. A sustained 2 Mbps for 1 h/day for 30 days with 10% actual traffic overhead is **29.7 GB/month**; 5 Mbps for 2 h/day is **148.5 GB/month**. Eight concurrent synthetic demand streams at 5 Mbps for 2 h/day are **1,188 GB/month**, but the current eight-SOCKS-session limit is **not eight independent A phones**. Prices, backhaul rights, capacity and coverage remain unverified.
+
+**Artifact:** [offline W12 budget tool](../tools/w12_relay_backhaul_budget.py), commit `87befa20272736e5e62207517c2d546480e4c1db`, locally executed deterministic `PASS_HARP_W12_SYNTHETIC_BACKHAUL_BUDGET_SELFTEST`. Git blob `26094907c64bfac5c17de1563dae95f7a3b648c4` verified identical to local tested source. [Research report](W12_METERED_RELAY_CONSENT_AND_BACKHAUL_2026-10-28.md), commit `7c31355e70d5556523611b526ea5d4fa172074a8`.
+
+**Release gate:** default-deny metered/roaming/opaque-VPN upstream without explicit consent and authorization; enforce bytes/time quotas, callback revocation, rate limits, negative tests and billing measurement. **NOT IMPLEMENTED**; do not claim an Android build. W11 lab PSK remains a separate public blocker. Continue W10 P0 authorized guest Wi-Fi, local L2 build/controlled A/B tests, and OAI RFsim authentication when available. Stock unknown B cannot relay without cooperation; community mesh needs backhaul; 5G ProSe/SNPN needs provisioned infrastructure; eSIM is credentials.
+
+**No GitHub Actions or CI usage, no phone installation, no RFsim/PC5, no real AP or mobile-data measurement, and no Internet PASS in W12.**
