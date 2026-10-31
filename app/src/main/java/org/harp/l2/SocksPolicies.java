@@ -106,6 +106,21 @@ final class SocksPolicies {
             if (first == 0x20 && second == 0x01
                     && (raw[2] & 0xff) == 0x0d
                     && (raw[3] & 0xff) == 0xb8) return false;     // 2001:db8::/32
+
+            // IANA IPv6 Special-Purpose registry: Globally Reachable = False.
+            // These are additional non-public ranges, not evidence of an exploit.
+            if (first == 0x00 && second == 0x64
+                    && (raw[2] & 0xff) == 0xff && (raw[3] & 0xff) == 0x9b
+                    && raw[4] == 0 && raw[5] == 1) return false; // 64:ff9b:1::/48
+            if (first == 0x01 && second == 0x00
+                    && raw[2] == 0 && raw[3] == 0 && raw[4] == 0
+                    && raw[5] == 0 && raw[6] == 0 && raw[7] == 0) return false; // 100::/64
+            if (first == 0x20 && second == 0x01
+                    && raw[2] == 0 && raw[3] == 2
+                    && raw[4] == 0 && raw[5] == 0) return false; // 2001:2::/48
+            if (first == 0x3f && second == 0xff
+                    && (raw[2] & 0xf0) == 0) return false;       // 3fff::/20
+            if (first == 0x5f && second == 0x00) return false;   // 5f00::/16
             return true;
         }
 
