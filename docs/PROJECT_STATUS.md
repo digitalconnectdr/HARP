@@ -4,6 +4,13 @@
 **Repository:** `digitalconnectdr/HARP`  
 **Baseline commit reviewed through:** `d15cb4c3650008cd182b24fd0786efaa870b252c`
 
+## Current research checkpoint — 2026-10-31 (W15)
+
+- **W15 source-level fix + actual-source JDK PASS:** `SocksPolicies.publicWeb()` previously accepted five IANA IPv6 special-purpose prefixes marked **Globally Reachable = False**: `64:ff9b:1::/48`, `100::/64`, `2001:2::/48`, `3fff::/20`, `5f00::/16`. Exact original Java blob `35a85fc66279f0f802fe6501322c41f0d47afe1a` reproduced ten non-global literal-address accepts (two per prefix) in OpenJDK 21; corrected Java blob `2595a3869e2e42f7b29e4bbf769ed219670469a8` rejects them, while positive global-address and previous private-address controls remain intact.
+- **Artifacts:** [W15 research and evidence limits](W15_IANA_IPV6_POLICY_JDK_REGRESSION_2026-10-31.md); [offline JDK regression test](../tools/w15/SocksPublicAddressPolicySelfTest.java); [corrected production source](../app/src/main/java/org/harp/l2/SocksPolicies.java). Executed locally: `PASS_HARP_W15_ACTUAL_SOURCE_BASELINE_GAPS_REPRODUCED`, `PASS_HARP_W15_JDK_PUBLIC_ADDRESS_POLICY_REGRESSION`. The test compiled **real source**, not synthetic snippets. No Android APK build, socket, DNS, physical network, or billing test.
+- **Limits:** This is a narrow hardening change, not a complete IANA-registry synchronizer, not proof of exploitation, and not proof of a functional Android relay. **W14 UDP mismatch**, **W11 pairing**, **W12/W13 metered consent and quota integration**, and all physical proof gates remain unresolved. Public relay **NO-GO**.
+- **P0 remains:** venue/ISP-approved guest Wi-Fi; A mobile data OFF; actual DNS, HTTPS and gateway egress with isolated guests. Unknown B without HARP cannot be presumed to forward traffic. Community sites need funded backhaul. ProSe/SNPN and eSIM do not eliminate network/credential requirements. No Actions, CI, phone installations or third-party probes.
+
 ## Current research checkpoint — 2026-10-28 (W12)
 
 - **W12 is a source-level release blocker for paid volunteer relays:** `InternetNetworkSelector.choose()` may select metered cellular or VPN upstream without explicit metered-plan authorization or byte cap. The B — RELAY button opts into the lab role but is not a documented informed data-cost consent. The upstream callback stops on loss of validation, not on metered/roaming transition or budget exhaustion. **No physical billing incident is claimed.**
