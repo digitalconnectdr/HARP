@@ -46,7 +46,7 @@ public final class SocksPublicAddressPolicySelfTest {
             }
         }
         for (String ip : Arrays.asList("1.1.1.1", "8.8.8.8", "2606:4700:4700::1111",
-                "64:ff9b::1", "2001:3::1")) {
+                "64:ff9b::808:808", "2001:3::1")) {
             check(SocksPolicies.isPublicInternetAddress(literal(ip)),
                     "unexpected global-address denial: " + ip);
         }
