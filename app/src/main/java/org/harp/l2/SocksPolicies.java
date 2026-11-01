@@ -102,6 +102,23 @@ final class SocksPolicies {
             int first = raw[0] & 0xff;
             int second = raw[1] & 0xff;
 
+            // RFC 6052 NAT64 Well-Known Prefix 64:ff9b::/96 embeds an IPv4
+            // destination in the last 32 bits. A globally reachable IPv6
+            // prefix alone does not make the embedded IPv4 destination public.
+            // Preserve public NAT64 destinations; deny private/special IPv4.
+            if (first == 0x00 && second == 0x64
+                    && (raw[2] & 0xff) == 0xff && (raw[3] & 0xff) == 0x9b
+                    && raw[4] == 0 && raw[5] == 0 && raw[6] == 0
+                    && raw[7] == 0 && raw[8] == 0 && raw[9] == 0
+                    && raw[10] == 0 && raw[11] == 0) {
+                try {
+                    return isPublicInternetAddress(InetAddress.getByAddress(
+                            new byte[]{raw[12], raw[13], raw[14], raw[15]}));
+                } catch (java.net.UnknownHostException e) {
+                    return false; // Fail closed, even though 4-byte addresses are valid.
+                }
+            }
+
             if ((first & 0xfe) == 0xfc) return false;             // fc00::/7 ULA
             if (first == 0x20 && second == 0x01
                     && (raw[2] & 0xff) == 0x0d
