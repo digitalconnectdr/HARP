@@ -3936,3 +3936,25 @@ New artifacts:
 **Limits:** Only the well-known /96 prefix is handled. Network-specific NAT64 prefixes, other translation/tunneling aliases, Android runtime and real translator enforcement are **NOT TESTED**. No claim of an exploit, real NAT64 access or carrier bill. W11 authenticated Aware pairing, W12 consent, W13 quotas, W14 UDP/CONNECT and actual Android L2 build remain public relay **NO-GO**. P0 remains an authorized venue + ISP guest Wi-Fi site with A cellular data OFF, measured DNS/HTTPS/gateway egress, isolation, costs and useful user-hours. Unknown unprepared B is not a relay; community Wi-Fi needs backhaul; ProSe/SNPN requires provisioned UEs/network; eSIM is credential provisioning only. No new ISP quotes or physical 5G/PC5/RFsim tests.
 
 **No GitHub Actions/CI, no phone installation, no network probing, no physical Internet or NAT64 demonstration in W16.**
+
+
+## 62. W17 Stage-2 outbound socket revocation — 2026-11-02
+
+**Actual-source bug reproduction and narrow production fix, with a local JDK TCP loopback test (not Android/Internet).** In the old `Stage2RelayServer.close()`, the listener and accepted client sockets were closed, but outbound sockets created by `MiniSocks5` through the selected Android `Network` socket factory were not tracked. The original source Git blob `b43288e042ffc2ac866009145f12b6bd18817bd2` was reconstructed locally with an exact hash match. A SOCKS5 CONNECT loopback test authenticated, forwarded a byte in both directions, and reproduced `PASS_HARP_W17_BASELINE_OUTBOUND_REMAINS_OPEN_AFTER_STOP` in **3/3 runs** (socket open at the instant stop returned; no assertion of lasting traffic or billing).
+
+**Patched source:** [Stage2RelayServer.java](../app/src/main/java/org/harp/l2/Stage2RelayServer.java), Git blob `3050b1f146e21c74a60f349daa761d23f72f02bb`, commit `ed806e18894fcacd499c3bf459cc10bf9abdd447`. It wraps, but does **not replace**, the caller-selected network-bound `SocketFactory`; tracks outbound sockets (the current zero-argument `createSocket()` path **before connect**); closes both accepted and outbound sockets on stop; double-checks closure during registration; and prunes closed failed candidates. The same local JDK 21 loopback test passed `PASS_HARP_W17_JDK_LOOPBACK_RELAY_OUTBOUND_CLOSED` **10/10 runs**. No production destination policy or SOCKS5 protocol change.
+
+**Artifacts:** [W17 actual-source JDK loopback test](../tools/w17/Stage2OutboundCloseSelfTest.java), Git blob `13a43570dab5a22ae1f64ad6ef42314b2ab73705`, commit `47b1728c98341c4696864298216162646c1cc976`; [W17 report and reproduction instructions](W17_STAGE2_OUTBOUND_SOCKET_REVOCATION_JDK_LOOPBACK_2026-11-02.md), commit `66b9f0a69209d985f4e722f926cb8023fef9f669`. Published blobs were verified against locally tested source for production code and test.
+
+**Limitations:** The loopback test is real local TCP socket I/O, **not** physical Android A/B connectivity, Android APK compilation, carrier-data metering, public Internet or a concurrency proof for all races. The Android SDK is not present in the local runner; no APK was built. Network capability changes are **not yet wired** to trigger `close()`; W11 Aware peer identity, W12 consent/ISP rights, W13 byte quotas and W14 UDP mismatch remain **PUBLIC RELAY NO-GO**. Oracle JDK 21 `Socket.close()` explicitly closes both streams and wakes blocked I/O; Android `onCapabilitiesChanged`/`onLost` must be integrated and tested separately.
+
+**Priority P0 remains unchanged:** a written ISP/venue-authorized guest Wi-Fi site, A mobile data OFF, measured real DNS + HTTPS + gateway egress, isolation, successful user-hours and dated backhaul costs. No current ISP quotes or physical pilot. Unknown noncooperating stock B is not an available relay. Community mesh requires backhaul; ETSI TS 123 304 v19.6.0 documents provisioned ProSe/SNPN but does not prove stock PC5; GSMA eSIM is profile provisioning, not independent Internet. Example-only fixed-site economics: RD$5,700/month / 600 successful user-hours = RD$9.50/hour versus RD$95/hour at 60 hours; **all amounts/hours hypothetical**.
+
+Official references:
+- https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/net/Socket.html
+- https://developer.android.com/training/monitoring-device-state/connectivity-status-type
+- https://www.rfc-editor.org/rfc/rfc1928
+- https://www.etsi.org/deliver/etsi_ts/123300_123399/123304/19.06.00_60/
+- https://www.gsma.com/solutions-and-impact/technologies/esim/esim-specification/
+
+**No GitHub Actions or CI, no phone installs, no external network probing, no real Internet/PC5/RFsim or carrier-billing PASS in W17.**
