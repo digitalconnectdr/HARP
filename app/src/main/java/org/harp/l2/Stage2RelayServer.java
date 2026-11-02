@@ -2,6 +2,7 @@ package org.harp.l2;
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.net.InetAddress;
 import java.net.Socket;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,6 +31,9 @@ final class Stage2RelayServer implements AutoCloseable {
     private final Semaphore sessionSlots;
     private final Set<Socket> activeSockets =
             ConcurrentHashMap.newKeySet();
+    // Track the sockets returned by the selected Android Network's factory.
+    // Closing the accepted peer socket alone does not reliably close upstream TCP.
+    private final Set<Socket> activeOutboundSockets = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean started = new AtomicBoolean();
     private final Consumer<String> logger;
@@ -53,7 +57,7 @@ final class Stage2RelayServer implements AutoCloseable {
         this.credentials = credentials;
         this.destinationPolicy = destinationPolicy;
         this.resolver = resolver;
-        this.outboundFactory = outboundFactory;
+        this.outboundFactory = new TrackingOutboundSocketFactory(outboundFactory);
         this.peerPolicy = peerPolicy;
         this.sessionSlots = new Semaphore(maxConcurrentSessions);
         this.io = Executors.newCachedThreadPool();
@@ -143,9 +147,70 @@ final class Stage2RelayServer implements AutoCloseable {
         if (!closed.compareAndSet(false, true)) return;
         closeQuietly(listener);
         for (Socket socket : activeSockets) closeQuietly(socket);
+        for (Socket socket : activeOutboundSockets) closeQuietly(socket);
         activeSockets.clear();
+        activeOutboundSockets.clear();
         io.shutdownNow();
         logger.accept("Stage2 relay stopped");
+    }
+
+    /**
+     * Preserve the exact caller-selected Network socket factory (and binding)
+     * while making all sockets it creates visible to close(). The zero-arg
+     * createSocket path used by MiniSocks5 is tracked BEFORE connect().
+     */
+    private final class TrackingOutboundSocketFactory extends SocketFactory {
+        private final SocketFactory delegate;
+
+        TrackingOutboundSocketFactory(SocketFactory delegate) {
+            if (delegate == null) throw new IllegalArgumentException("outbound factory required");
+            this.delegate = delegate;
+        }
+
+        private Socket track(Socket socket) throws IOException {
+            if (closed.get()) {
+                closeQuietly(socket);
+                throw new IOException("relay closed before outbound registration");
+            }
+            // Failed connection candidates are closed by MiniSocks5; discard
+            // them before tracking another socket to avoid unbounded growth.
+            activeOutboundSockets.removeIf(Socket::isClosed);
+            activeOutboundSockets.add(socket);
+            // A close may race with registration. Double-check fail-closed.
+            if (closed.get()) {
+                activeOutboundSockets.remove(socket);
+                closeQuietly(socket);
+                throw new IOException("relay closed during outbound registration");
+            }
+            return socket;
+        }
+
+        @Override
+        public Socket createSocket() throws IOException {
+            return track(delegate.createSocket());
+        }
+
+        @Override
+        public Socket createSocket(String host, int port) throws IOException {
+            return track(delegate.createSocket(host, port));
+        }
+
+        @Override
+        public Socket createSocket(String host, int port,
+                InetAddress localHost, int localPort) throws IOException {
+            return track(delegate.createSocket(host, port, localHost, localPort));
+        }
+
+        @Override
+        public Socket createSocket(InetAddress host, int port) throws IOException {
+            return track(delegate.createSocket(host, port));
+        }
+
+        @Override
+        public Socket createSocket(InetAddress address, int port,
+                InetAddress localAddress, int localPort) throws IOException {
+            return track(delegate.createSocket(address, port, localAddress, localPort));
+        }
     }
 
     private static void closeQuietly(AutoCloseable closeable) {
