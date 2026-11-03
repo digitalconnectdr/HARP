@@ -3958,3 +3958,12 @@ Official references:
 - https://www.gsma.com/solutions-and-impact/technologies/esim/esim-specification/
 
 **No GitHub Actions or CI, no phone installs, no external network probing, no real Internet/PC5/RFsim or carrier-billing PASS in W17.**
+
+
+## 63. W18 Android egress capability-change revocation gate — 2026-11-03
+
+**New, source-reviewed integration gap; design only.** W17 added explicit close of outbound sockets, but `InternetNetworkSelector.choose()` is a one-time capability snapshot and permits metered/VPN fallbacks; the reviewed selector and relay server do not implement a pinned-network callback-to-revocation contract. Official Android guidance says synchronous capability snapshots may become stale; `onCapabilitiesChanged(network, caps)` supplies ordered updates, `onLost(network)` can indicate a network no longer meets callback criteria, and temporarily unmetered status can disappear. The selected network must be pinned, with new opt-in before any fallback to cellular/VPN; a loss of eligibility must trigger W17's close, including both transfer directions. Do not call synchronous capability getters inside callbacks. **No Android callback test or production fix was executed in W18.**
+
+[W18 full falsifiable N1–N10 matrix and cost/architecture decision](W18_EGRESS_CAPABILITY_CHANGE_REVOCATION_GATE_2026-11-03.md), initial documentation commit `c060f954f5d7c38b4c5acce6890aa3f40538a6a2`. Android official sources: https://developer.android.com/reference/android/net/NetworkCapabilities and https://developer.android.com/reference/android/net/ConnectivityManager.NetworkCallback .
+
+**Still NO-GO public relay:** W11 pairing identity, W12 consent/ISP rights, W13 quotas, W14 UDP mismatch, W18 dynamic capability revocation and physical A/B evidence. Priority P0: consented guest AP, ISP authorization, A cellular data OFF, real DNS/HTTPS/gateway egress, isolation, dated backhaul quotes and measured user-hours. Unknown unprepared B is not a relay; community mesh requires upstream, 5G ProSe/SNPN requires compatible provisioned devices/network, eSIM is provisioning only. No GitHub Actions/CI, APK/phone installs, physical Internet, RFsim or PC5 in W18.
