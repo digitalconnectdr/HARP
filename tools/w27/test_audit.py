@@ -1,0 +1,21 @@
+import unittest
+import datetime as dt
+from audit import audit,parse_utc
+S=parse_utc('2026-11-01T00:00:00Z');E=S+dt.timedelta(minutes=15)
+def row(c,t,**flags):
+ d=dict(client_id=c,timestamp_utc=t,cellular_off='1',dns_ok='1',https1_ok='1',https2_ok='1',egress_ok='1');d.update(flags);return d
+class AuditTests(unittest.TestCase):
+ def test_multi_client(self):
+  x=audit([row('A','2026-11-01T00:00:00Z'),row('B','2026-11-01T00:00:00Z',dns_ok='0')],S,E,['A','B'])['total'];self.assertEqual((x['expected'],x['success'],x['failure'],x['missing']),(6,1,1,4))
+ def test_complete(self):
+  r=[row('A',f'2026-11-01T00:{m:02d}:00Z') for m in (0,5,10)];self.assertEqual(audit(r,S,E,['A'])['total']['verified_hours'],.25)
+ def test_missing(self):self.assertEqual(audit([],S,E,['A'])['total']['missing'],3)
+ def test_duplicate(self):
+  r=row('A','2026-11-01T00:00:00Z');self.assertRaises(ValueError,audit,[r,r],S,E,['A'])
+ def test_invalid_flag(self):self.assertRaises(ValueError,audit,[row('A','2026-11-01T00:00:00Z',dns_ok='yes')],S,E,['A'])
+ def test_unaligned(self):self.assertRaises(ValueError,audit,[row('A','2026-11-01T00:01:00Z')],S,E,['A'])
+ def test_outside(self):self.assertRaises(ValueError,audit,[row('A','2026-11-01T00:15:00Z')],S,E,['A'])
+ def test_unknown_client(self):self.assertRaises(ValueError,audit,[row('B','2026-11-01T00:00:00Z')],S,E,['A'])
+ def test_duplicate_clients(self):self.assertRaises(ValueError,audit,[],S,E,['A','A'])
+ def test_non_utc(self):self.assertRaises(ValueError,parse_utc,'2026-11-01T00:00:00+00:00')
+if __name__=='__main__':unittest.main()
