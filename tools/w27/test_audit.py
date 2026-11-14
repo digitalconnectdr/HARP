@@ -23,4 +23,16 @@ class AuditTests(unittest.TestCase):
  def test_noncanonical_timestamp(self):self.assertRaises(ValueError,parse_utc,'2026-11-01T00:00Z')
  def test_fractional_timestamp(self):self.assertRaises(ValueError,parse_utc,'2026-11-01T00:00:00.0Z')
  def test_whitespace_client(self):self.assertRaises(ValueError,audit,[],S,E,[' A'])
+ def test_seven_days_two_clients_one_absent(self):
+  end=S+dt.timedelta(days=7)
+  x=audit([row('A','2026-11-01T00:00:00Z')],S,end,['A','B'])
+  self.assertEqual(x['total']['expected'],4032)
+  self.assertEqual(x['per_client']['B']['missing'],2016)
+  self.assertEqual(x['total']['verified_hours'],1/12)
+ def test_naive_window(self):self.assertRaises(ValueError,audit,[],S.replace(tzinfo=None),E,['A'])
+ def test_non_utc_window(self):
+  tz=dt.timezone(dt.timedelta(hours=-4))
+  self.assertRaises(ValueError,audit,[],S.astimezone(tz),E.astimezone(tz),['A'])
+ def test_empty_client(self):self.assertRaises(ValueError,audit,[],S,E,[''])
+ def test_malformed_timestamp(self):self.assertRaises(ValueError,parse_utc,'2026-11-01T00:00:00Zjunk')
 if __name__=='__main__':unittest.main()
