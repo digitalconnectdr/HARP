@@ -1,5 +1,13 @@
 # HARP — Project Status
 
+## Current research checkpoint — 2026-11-22 (W37)
+
+- [W37 CAPPORT quota accounting and evidence boundary](W37_CAPPORT_QUOTA_ACCOUNTING_2026-11-22.md): RFC 8908 defines `bytes-remaining` as both directions of client L3 bytes including IP headers; this is not equal to WAN totals or billed bytes. `captive=false` does not prove HTTPS egress. Per-client session identity and revocation require gateway enforcement.
+- Exact GitHub W27 auditor source inspected: its `verified_hours` remains a sample-weighted CSV assertion, not independently verified continuous service. No code correction or new test PASS claimed.
+- Hypothetical 100 users x 10 GB/month gives 3.09 Mbps average; 15 concurrent x 2 Mbps x 1.3 gives 39 Mbps target, or >48.75 Mbps nominal at 80% efficiency. No ISP quote or physical measurement.
+- **Public relays NO-GO**. Authorized Wi-Fi/backhaul remains first pilot. No Actions, CI, installations, or physical trials.
+
+
 **Baseline date:** 2026-10-26
 **Repository:** `digitalconnectdr/HARP`  
 **Baseline commit reviewed through:** `d15cb4c3650008cd182b24fd0786efaa870b252c`
